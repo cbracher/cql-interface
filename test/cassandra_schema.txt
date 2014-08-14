@@ -1,0 +1,14 @@
+drop keyspace cql_interface_test;
+
+CREATE KEYSPACE cql_interface_test
+         WITH REPLICATION = { 'class' : 'SimpleStrategy', 'replication_factor' : 1 };
+
+use cql_interface_test;
+
+create table if not exists test_data 
+(
+    docid timeuuid primary key,
+    value text
+);
+
+
