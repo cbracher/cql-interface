@@ -5,6 +5,7 @@
 
 #include "FetchHelper.h"
 #include "Fetcher.h"
+#include "FetcherAsync.h"
 #include "ConFetcher.h"
 #include "CassandraConn.h"
 #include "RefId.h"

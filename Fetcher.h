@@ -22,12 +22,6 @@ namespace cb {
             return CassandraConn::fetch(query, *this) && m_was_set;
         }
 
-        bool do_fetch(const std::string& query, const std::string& param, T& obj)
-        {
-            m_ptr = &obj;
-            return CassandraConn::fetch(query + "'" + param + "'", *this) && m_was_set;
-        }
-
     protected:
 
         virtual bool fetch(const CassRow& result)
@@ -35,10 +29,10 @@ namespace cb {
             m_was_set = true;
             return FetchHelper::get_first(*m_ptr, result);
         }
+
         T* m_ptr;
         bool m_was_set;
     };
-
 }
 
 #endif 

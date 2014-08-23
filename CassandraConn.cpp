@@ -40,10 +40,7 @@ namespace {
                     m_cluster = cass_cluster_new();
                     for (auto it = ip_list.begin(); it != ip_list.end(); ++it)
                     {
-                        cass_cluster_setopt(m_cluster, 
-                                            CASS_OPTION_CONTACT_POINTS, 
-                                            it->c_str(), 
-                                            it->size());
+                        cass_cluster_set_contact_points(m_cluster, it->c_str());
                     }
                     m_session_future = cass_cluster_connect_keyspace(m_cluster, 
                                                                      keyspace.c_str());
@@ -139,7 +136,7 @@ void CassandraConn::static_init(const std::set<std::string>& ip_list,
     }
 }
 
-bool CassandraConn::store(const std::string& query, CassConsistency_ consist)
+bool CassandraConn::store(const std::string& query, CassConsistency consist)
 {
     bool retVal = false;
 
@@ -148,9 +145,12 @@ bool CassandraConn::store(const std::string& query, CassConsistency_ consist)
     if (use_session)
     {
         CassFuture* future = NULL;
-        CassStatement* statement = cass_statement_new(cass_string_init(query.c_str()), 0, consist);
+        CassStatement* statement = cass_statement_new(cass_string_init(query.c_str()), 0);
+        cass_statement_set_consistency(statement, consist);
         
         future = cass_session_execute(use_session, statement);
+        cass_statement_free(statement);
+
         cass_future_wait_timed(future, timeout_in_micro);
         
         CassError rc = cass_future_error_code(future);
@@ -166,7 +166,6 @@ bool CassandraConn::store(const std::string& query, CassConsistency_ consist)
         }
         
         cass_future_free(future);
-        cass_statement_free(statement);
     } else
     {
         LOG4CXX_ERROR(logger, "calling store: \"" << query << "\" before cassandra is initialized");
@@ -177,7 +176,7 @@ bool CassandraConn::store(const std::string& query, CassConsistency_ consist)
 bool CassandraConn::store(const std::string& query_in, 
                           UUID_TYPE_ENUM uuid_opt,
                           RefIdImp& auto_increment_id,
-                          CassConsistency_ consist)
+                          CassConsistency consist)
 {
     static const string auto_token = "AUTO_UUID";
 
@@ -202,13 +201,13 @@ bool CassandraConn::store(const std::string& query_in,
 }
 
 bool CassandraConn::change(const std::string& query, 
-                           CassConsistency_ consist)
+                           CassConsistency consist)
 {
     return store(query, consist);
 }
 
 bool CassandraConn::truncate(const std::string& table_name, 
-                             CassConsistency_ consist)
+                             CassConsistency consist)
 {
     string cmd = string("truncate ") + table_name;
     // note that this change might fail
@@ -241,7 +240,7 @@ bool CassandraConn::truncate(const std::string& table_name,
 }
 
 bool CassandraConn::store_if_not_exists(const std::string& query, 
-                                        CassConsistency_ consist)
+                                        CassConsistency consist)
 {
     string use_query = query + " if not exists";
 
@@ -255,62 +254,110 @@ bool CassandraConn::store_if_not_exists(const std::string& query,
     return retVal;
 }
 
+bool CassandraConn::async_fetch(const std::string& query, 
+                                CassFetcherPtr fetcher,
+                                CassFetcherHolderPtr fetch_holder,
+                                CassConsistency consist)
+{
+    bool retVal = false;
+    CassSession* use_session = cass_base ? cass_base->session() : empty_session;
+
+    if (use_session && fetcher && fetch_holder)
+    {
+        CassStatement* statement = cass_statement_new(cass_string_init(query.c_str()), 0);
+        cass_statement_set_consistency(statement, consist);
+        
+        CassFuture* future = cass_session_execute(use_session, statement);
+        cass_statement_free(statement);
+
+        retVal = fetch_holder->assign(future, fetcher, query);
+    } else if (!fetcher)
+    {
+        LOG4CXX_ERROR(logger, "calling fetch: \"" << query << "\" with null CassFetcherPtr");
+    } else if (!fetch_holder)
+    {
+        LOG4CXX_ERROR(logger, "calling fetch: \"" << query << "\" with null CassFetcherHolderPtr");
+    } else
+    {
+        LOG4CXX_ERROR(logger, "calling fetch: \"" << query << "\" before cassandra is initialized");
+    }
+    return retVal;
+}
+
+
 bool CassandraConn::fetch(const std::string& query, 
                           CassFetcher& fetcher,
-                          CassConsistency_ consist)
+                          CassConsistency consist)
 {
     bool retVal = false;
     CassSession* use_session = cass_base ? cass_base->session() : empty_session;
 
     if (use_session)
     {
-        CassFuture* future = NULL;
-        CassStatement* statement = cass_statement_new(cass_string_init(query.c_str()), 0, consist);
+        CassStatement* statement = cass_statement_new(cass_string_init(query.c_str()), 0);
+        cass_statement_set_consistency(statement, consist);
         
-        future = cass_session_execute(use_session, statement);
-        cass_future_wait_timed(future, timeout_in_micro);
-        
-        CassError rc = cass_future_error_code(future);
-        if(rc == CASS_OK) 
-        {
-            retVal = true;
-            const CassResult* result = cass_future_get_result(future);
-            CassIterator* iterator = cass_iterator_from_result(result);
+        CassFuture* future = cass_session_execute(use_session, statement);
+        cass_statement_free(statement);
 
-            unsigned nrows = 0;
-            while(retVal && cass_iterator_next(iterator)) {
-                const CassRow* row = cass_iterator_get_row(iterator);
-                if (row)
-                {
-                    ++nrows;
-                    try
-                    {
-                        retVal = fetcher.fetch(*row);
-                    } catch(std::exception& e)
-                    {
-                        retVal = false;
-                        LOG4CXX_ERROR(logger, "Exception in fetcher.fetch for query: " << query
-                                                << " error: " << e.what());
-                    }
-                } else
-                {
-                    LOG4CXX_ERROR(logger, "fetch: \"" << query << "\" getting null row");
-                    retVal = false;
-                }
-            }
-            LOG4CXX_TRACE(logger, "fetch: \"" << query << "\" returned " << nrows << " rows");
-            cass_result_free(result);
-            cass_iterator_free(iterator);
-        } else
-        {
-            CassString message = cass_future_error_message(future);
-            LOG4CXX_ERROR(logger, "calling fetch: \"" << query 
-                                    << "\" has error: " << string(message.data, message.length));
-        }
+        retVal = process_future(future, fetcher, query);
     } else
     {
         LOG4CXX_ERROR(logger, "calling fetch: \"" << query << "\" before cassandra is initialized");
     }
+    return retVal;
+}
+
+bool CassandraConn::process_future(CassFuture* future, 
+                                   CassFetcher& fetcher, 
+                                   const std::string& query)
+{
+    bool retVal = false;
+    if (!future)
+    {
+        LOG4CXX_ERROR(logger, "getting null future in CassandraConn::process_future");
+        return retVal;
+    }
+    cass_future_wait_timed(future, timeout_in_micro);
+    
+    CassError rc = cass_future_error_code(future);
+    if(rc == CASS_OK) 
+    {
+        retVal = true;
+        const CassResult* result = cass_future_get_result(future);
+        CassIterator* iterator = cass_iterator_from_result(result);
+
+        unsigned nrows = 0;
+        while(retVal && cass_iterator_next(iterator)) {
+            const CassRow* row = cass_iterator_get_row(iterator);
+            if (row)
+            {
+                ++nrows;
+                try
+                {
+                    retVal = fetcher.fetch(*row);
+                } catch(std::exception& e)
+                {
+                    retVal = false;
+                    LOG4CXX_ERROR(logger, "Exception in fetcher.fetch for query: " << query
+                                            << " error: " << e.what());
+                }
+            } else
+            {
+                LOG4CXX_ERROR(logger, "fetch: \"" << query << "\" getting null row");
+                retVal = false;
+            }
+        }
+        LOG4CXX_TRACE(logger, "fetch: \"" << query << "\" returned " << nrows << " rows");
+        cass_result_free(result);
+        cass_iterator_free(iterator);
+    } else
+    {
+        CassString message = cass_future_error_message(future);
+        LOG4CXX_ERROR(logger, "calling fetch: \"" << query 
+                                << "\" has error: " << string(message.data, message.length));
+    }
+    cass_future_free(future);
     return retVal;
 }
 

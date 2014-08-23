@@ -285,6 +285,42 @@ BOOST_AUTO_TEST_CASE(test_fetcher_multi_coll)
     }
 }
 
+BOOST_AUTO_TEST_CASE(test_async_fetcher) 
+{
+    bool ok = CassandraConn::truncate("other_test_data", consist);
+    BOOST_REQUIRE_MESSAGE(ok, "cleared other_test_data");
+    BOOST_REQUIRE_MESSAGE(ok, "adding some other_test_data");
+    BOOST_REQUIRE(CassandraConn::store("insert into other_test_data (docid, value) values(1, 'test data1')"));
+    BOOST_REQUIRE(CassandraConn::store("insert into other_test_data (docid, value) values(2, 'test data2')"));
+    BOOST_REQUIRE(CassandraConn::store("insert into other_test_data (docid, value) values(3, 'test data3')"));
+    BOOST_REQUIRE(CassandraConn::store("insert into other_test_data (docid, value) values(4, 'test data4')"));
+
+    string val1;
+    CassFetcherHolderPtr holder1 = async_fetch("select value from other_test_data where docid=1", val1);
+    string val2;
+    CassFetcherHolderPtr holder2 = async_fetch("select value from other_test_data where docid=2", val2);
+    string val3;
+    CassFetcherHolderPtr holder3 = async_fetch("select value from other_test_data where docid=3", val3);
+    string val4;
+    CassFetcherHolderPtr holder4 = async_fetch("select value from other_test_data where docid=4", val4);
+
+    BOOST_REQUIRE(holder2 && holder2->was_set());
+    BOOST_REQUIRE(val2=="test data2");
+
+    // additional checks not an issue
+    BOOST_REQUIRE(holder2 && holder2->was_set());
+    BOOST_REQUIRE(holder2 && holder2->was_set());
+
+    BOOST_REQUIRE(holder4 && holder4->was_set());
+    BOOST_REQUIRE(val4=="test data4");
+
+    BOOST_REQUIRE(holder3 && holder3->was_set());
+    BOOST_REQUIRE(val3=="test data3");
+
+    BOOST_REQUIRE(holder1 && holder1->was_set());
+    BOOST_REQUIRE(val1=="test data1");
+}
+
 
 BOOST_AUTO_TEST_CASE(test_cassandra_store_if_exists) 
 {

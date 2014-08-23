@@ -23,11 +23,6 @@ namespace cb {
             return CassandraConn::fetch(query, *this);
         }
 
-        bool do_fetch(const std::string& query, const std::string& param, Con& con)
-        {
-            m_conPtr = &con;
-            return CassandraConn::fetch(query + "'" + param + "'", *this);
-        }
     protected:
 
         virtual bool fetch(const CassRow& result)

@@ -4,21 +4,13 @@
 #include <string>
 #include <set>
 #include <cassandra.h>
+#include "CassFetcherHolder.h"
 
 #define CASS_UUID_NUM_BYTES  16
 
 namespace cb {
 
     class RefIdImp;
-
-    class CassFetcher
-    {
-    public:
-
-        virtual ~CassFetcher() {}
-
-        virtual bool fetch(const CassRow& result_row) = 0;
-    };
 
     enum UUID_TYPE_ENUM { TIMEUUID_ENUM, UUID_ENUM};
     class CassandraConn {
@@ -33,14 +25,14 @@ namespace cb {
                                 bool use_ssl = false);
 
         static bool store(const std::string& query, 
-                          CassConsistency_ = CASS_CONSISTENCY_LOCAL_QUORUM);
+                          CassConsistency consist = CASS_CONSISTENCY_LOCAL_QUORUM);
 
         // note that " if not exists " is added by the call.
         static bool store_if_not_exists(const std::string& query, 
-                          CassConsistency_ = CASS_CONSISTENCY_LOCAL_QUORUM);
+                          CassConsistency consist = CASS_CONSISTENCY_LOCAL_QUORUM);
 
         static bool truncate(const std::string& table_name, 
-                             CassConsistency_ = CASS_CONSISTENCY_LOCAL_QUORUM);
+                             CassConsistency consist = CASS_CONSISTENCY_LOCAL_QUORUM);
 
         // replaces first token "AUTO_UUID" with auto_increment_id
         // and makes the store. The values stored is captured in auto_increment_id.
@@ -49,13 +41,20 @@ namespace cb {
         static bool store(const std::string& query,    
                           UUID_TYPE_ENUM uuid_opt,
                           RefIdImp& auto_increment_id,
-                          CassConsistency_ = CASS_CONSISTENCY_LOCAL_QUORUM);
+                          CassConsistency consist = CASS_CONSISTENCY_LOCAL_QUORUM);
         static bool change(const std::string& query, 
-                           CassConsistency_ = CASS_CONSISTENCY_LOCAL_QUORUM);
+                           CassConsistency consist = CASS_CONSISTENCY_LOCAL_QUORUM);
 
         static bool fetch(const std::string& query, 
                           CassFetcher& fetcher,
-                          CassConsistency_ = CASS_CONSISTENCY_LOCAL_QUORUM);
+                          CassConsistency consist = CASS_CONSISTENCY_LOCAL_QUORUM);
+
+        // the CassFetcherHolder holds the query processing asyncronously. 
+        // will have to wait when the fetcher within is accessed.
+        static bool async_fetch(const std::string& query, 
+                                CassFetcherPtr fetcher,
+                                CassFetcherHolderPtr fetch_holder,
+                                CassConsistency consist = CASS_CONSISTENCY_LOCAL_QUORUM);
 
         // uuid management
         static void set_uuid_rand(CassUuid uuid);
@@ -69,6 +68,12 @@ namespace cb {
         // escape management
         // text fields must escape a "'" with another "'" for "''"
         static void escape(std::ostream& os, const std::string& text);
+
+        // utility call used in CassandraConn::fetch as well as by CassFetcherHolder
+        // for asyncronous processing
+        static bool process_future(CassFuture* future, 
+                                   CassFetcher& fetcher, 
+                                   const std::string& query);
 
         CassandraConn() = delete;
         ~CassandraConn() = delete;
