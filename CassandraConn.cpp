@@ -9,7 +9,7 @@
 #include "RefId.h"
 #include "Exception.h"
 #include "CassandraConn.h"
-#include "GenCassFetcher.h"
+#include "Fetcher.h"
 
 using namespace cb;
 using namespace std;
@@ -109,7 +109,7 @@ namespace {
         virtual bool fetch(const CassRow& row)
         {
             bool was_applied;
-            bool retVal = CassFetchHelper::get_nth(0, was_applied, row);
+            bool retVal = FetchHelper::get_nth(0, was_applied, row);
             return retVal && was_applied;
         }
     };
@@ -220,7 +220,7 @@ bool CassandraConn::truncate(const std::string& table_name,
         {
             sleep(1);
             int64_t count = 0;
-            SingleGenCassFetcher<int64_t> fetcher;
+            Fetcher<int64_t> fetcher;
             fetcher.do_fetch(string("select count(*) from ") + table_name, count);
             truncated = !count;
             if (truncated)

@@ -11,4 +11,16 @@ create table if not exists test_data
     value text
 );
 
+create table if not exists other_test_data 
+(
+    docid int primary key,
+    value text
+);
 
+create table if not exists coll_test_data 
+(
+    docid int primary key,
+    value_list list<int>,
+    value_set set<int>,
+    value_map map<int,int>
+);

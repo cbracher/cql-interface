@@ -1,16 +1,21 @@
-#ifndef CB_CASS_FETCHER_HELPER_H
-#define CB_CASS_FETCHER_HELPER_H
+#ifndef CB_FETCHER_HELPER_H
+#define CB_FETCHER_HELPER_H
 
+#include <vector>
+#include <set>
+#include <map>
+#include <list>
 #include "log4cxx/logger.h"
 #include "CassandraConn.h"
 #include "RefId.h"
+#include "Util.h"
 
 namespace cb {
 
 
     // helper functions used in the CassFetchers below
     enum cass_fld_required_enum_t { CASS_FLD_IS_REQUIRED_ENUM, CASS_FLD_NOT_REQUIRED_ENUM};
-    class CassFetchHelper
+    class FetchHelper
     {
     public:
         template<typename T> static bool get_first(T& val, 
@@ -44,10 +49,10 @@ namespace cb {
                             cass_fld_required_enum_t req_opt 
                                   = CASS_FLD_IS_REQUIRED_ENUM)
         {
+            val.clear();
             const CassValue* cass_value = cass_row_get_column(&row, field);
             if (cass_value_is_null(cass_value))
             {
-                val.clear();
                 return req_opt != CASS_FLD_IS_REQUIRED_ENUM;
             }
             CassIterator* items_iterator = cass_iterator_from_collection(cass_value);
@@ -75,10 +80,10 @@ namespace cb {
                             cass_fld_required_enum_t req_opt 
                                   = CASS_FLD_IS_REQUIRED_ENUM)
         {
+            val.clear();
             const CassValue* cass_value = cass_row_get_column(&row, field);
             if (cass_value_is_null(cass_value))
             {
-                val.clear();
                 return req_opt != CASS_FLD_IS_REQUIRED_ENUM;
             }
             CassIterator* items_iterator = cass_iterator_from_collection(cass_value);
@@ -106,10 +111,10 @@ namespace cb {
                             cass_fld_required_enum_t req_opt 
                                   = CASS_FLD_IS_REQUIRED_ENUM)
         {
+            val.clear();
             const CassValue* cass_value = cass_row_get_column(&row, field);
             if (cass_value_is_null(cass_value))
             {
-                val.clear();
                 return req_opt != CASS_FLD_IS_REQUIRED_ENUM;
             }
             CassIterator* items_iterator = cass_iterator_from_collection(cass_value);
@@ -138,10 +143,10 @@ namespace cb {
                                   = CASS_FLD_IS_REQUIRED_ENUM)
         {
             static log4cxx::LoggerPtr logger(log4cxx::Logger::getLogger("cb.cass_fetch_helper"));
+            val.clear();
             const CassValue* cass_value = cass_row_get_column(&row, field);
             if (cass_value_is_null(cass_value))
             {
-                val.clear();
                 return req_opt != CASS_FLD_IS_REQUIRED_ENUM;
             }
             CassIterator* items_iterator = cass_iterator_from_collection(cass_value);
@@ -288,10 +293,10 @@ namespace cb {
             CassandraConn::reset(val);
         }
 
-        CassFetchHelper() = delete;
-        ~CassFetchHelper() = delete;
+        private:
 
-
+        FetchHelper() = delete;
+        ~FetchHelper() = delete;
     };
 }
 
