@@ -23,10 +23,16 @@ add_library(${PROJECT_NAME} STATIC ${cpp_files})
 include_directories (/usr/include  /usr/local/include/ )
 
 target_link_libraries(${PROJECT_NAME} 
+                      boost_program_options.a
+                      boost_system.a
                       log4cxx.a 
                       libcassandra_static.a 
                       libaprutil-1.a
                       libapr-1.a
-                      libexpat.a)
+                      libexpat.a
+                      ssl
+                      crypto
+                      libuv.a
+                      pthread)
 
 add_subdirectory (test)

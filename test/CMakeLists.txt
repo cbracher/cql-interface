@@ -7,7 +7,7 @@ add_executable(${PROJECT_NAME} ${test_files} ${main_files})
 
 include_directories (/usr/include  /usr/local/include/  ..)
 
-target_link_libraries(${PROJECT_NAME} ../libcql_interface.a )
+target_link_libraries(${PROJECT_NAME} cql_interface )
 
 link_directories(/usr/local/lib /usr/lib)
 
