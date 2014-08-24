@@ -17,6 +17,25 @@ store some data:
 
     CassandraConn::store("insert into other_test_data (docid, value) values(1, 'test data1')");
 
+change some data
+
+    BOOST_REQUIRE(CassandraConn::store("insert into other_test_data (docid, value) values(1, 'test data1')"));
+
+
+    Fetcher<string> fetcher;
+
+    string val;
+
+    BOOST_REQUIRE(fetcher.do_fetch("select value from other_test_data where docid=1", val));
+
+    BOOST_REQUIRE(val=="test data1");
+
+    BOOST_REQUIRE(CassandraConn::change("update other_test_data set value = 'changed' where docid=1"));
+
+    BOOST_REQUIRE(fetcher.do_fetch("select value from other_test_data where docid=1", val));
+
+    BOOST_REQUIRE(val=="changed");
+
 
 single fetch:
 
@@ -61,11 +80,54 @@ pulling collections:
     val == vector<int>({1,2,4,8});
 
 
-Added calls to truncate tables [CassandraConn::truncate], since have seen some odd timeouts on truncation. This will truncate and then wait as long as it takes for the table to finish truncation.
+Added calls to truncate tables since have seen some odd timeouts on truncation. This will truncate and then wait as long as it takes for the table to finish truncation.
+
+        bool ok = CassandraConn::truncate("other_test_data", consist);
+
+        BOOST_REQUIRE_MESSAGE(ok, "cleared other_test_data");
 
 
-Added explicit calls to support storage if not exists, CassandraConn::store_if_not_exists.
+Added explicit calls to support paxos transaction if not exists calls
+
+        RefId refid;
+
+        CassUuid time_uuid;
+
+        CassandraConn::set_uuid_from_time(time_uuid);
+
+        refid = time_uuid;
+
+        ostringstream query;
+
+        query << "insert into test_data (docid, value) values("
+
+                                << refid << ", 'test data update')";
+
+        ok = CassandraConn::store_if_not_exists(query.str()); 
+
+        BOOST_REQUIRE_MESSAGE(ok, "inserted into test data: " << refid
+
+                                    << " on first store_if_not_exists");
+
+        ok = CassandraConn::store_if_not_exists(query.str()); 
+
+        BOOST_REQUIRE_MESSAGE(!ok, "failed insert into test data: " << refid
+
+                                    << " on second store_if_not_exists");
 
 
 Added CassandraConn::escape call to use for escaping string data.
+
+    string value = "line1\nline2\n'intenal quote'";
+
+    ostringstream cmd;
+
+    cmd << "insert into other_test_data (docid, value) values(1, '";
+
+    CassandraConn::escape(cmd, value);
+
+    cmd << "')";
+
+    BOOST_REQUIRE(CassandraConn::store(cmd.str()));
+
 

@@ -201,6 +201,44 @@ BOOST_AUTO_TEST_CASE(test_cassandra_store)
                           << ") == 2");
 }
 
+BOOST_AUTO_TEST_CASE(test_change) 
+{
+    bool ok = CassandraConn::truncate("other_test_data", consist);
+    BOOST_REQUIRE_MESSAGE(ok, "cleared other_test_data");
+    BOOST_REQUIRE_MESSAGE(ok, "adding some other_test_data");
+    BOOST_REQUIRE(CassandraConn::store("insert into other_test_data (docid, value) values(1, 'test data1')"));
+
+    Fetcher<string> fetcher;
+    string val;
+    BOOST_REQUIRE(fetcher.do_fetch("select value from other_test_data where docid=1", val));
+    BOOST_REQUIRE(val=="test data1");
+
+    BOOST_REQUIRE(CassandraConn::change("update other_test_data set value = 'changed' where docid=1"));
+    BOOST_REQUIRE(fetcher.do_fetch("select value from other_test_data where docid=1", val));
+    BOOST_REQUIRE(val=="changed");
+
+}
+
+BOOST_AUTO_TEST_CASE(test_escape) 
+{
+    bool ok = CassandraConn::truncate("other_test_data", consist);
+    BOOST_REQUIRE_MESSAGE(ok, "cleared other_test_data");
+    BOOST_REQUIRE_MESSAGE(ok, "adding some other_test_data");
+
+    string value = "line1\nline2\n'intenal quote'";
+    ostringstream cmd;
+    cmd << "insert into other_test_data (docid, value) values(1, '";
+    CassandraConn::escape(cmd, value);
+    cmd << "')";
+    BOOST_REQUIRE(CassandraConn::store(cmd.str()));
+
+    Fetcher<string> fetcher;
+    string val;
+    BOOST_REQUIRE(fetcher.do_fetch("select value from other_test_data where docid=1", val));
+    BOOST_REQUIRE_MESSAGE(val==value, "val[" << val << "] ==value["
+                                        << value << "]");
+}
+
 BOOST_AUTO_TEST_CASE(test_single_fetcher) 
 {
     bool ok = CassandraConn::truncate("other_test_data", consist);
