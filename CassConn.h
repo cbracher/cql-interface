@@ -22,6 +22,8 @@ namespace cb {
         static void static_init(const std::set<std::string>& ip_list, 
                                 const std::string& keyspace,
                                 cass_duration_t timeout_in_micro = 5000000,
+                                const std::string& login = "",
+                                const std::string& passwd = "",
                                 bool use_ssl = false);
 
         static bool store(const std::string& query, 

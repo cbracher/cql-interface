@@ -25,6 +25,7 @@ namespace cb {
             // looking for input of the form:
             // "550e8400-e29b-41d4-a716-446655440000"
             void assign(std::istream& is);
+            void assign(const std::string& str);  // creates the istream. could be slow
 
             // randomize this RefId
             void randomize();

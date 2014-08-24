@@ -24,7 +24,11 @@ namespace {
     {
         public:
 
-            CassBase(const std::set<std::string>& ip_list, const std::string& keyspace, bool use_ssl)
+            CassBase(const std::set<std::string>& ip_list, 
+                     const std::string& keyspace, 
+                     const std::string& login,
+                     const std::string& passwd,
+                     bool use_ssl)
             : m_cluster(0),
               m_session_future(0),
               m_session(0)
@@ -38,6 +42,22 @@ namespace {
                     }
 
                     m_cluster = cass_cluster_new();
+                    if (login.size() && passwd.size())
+                    {
+                        CassError ok = cass_cluster_set_credentials(m_cluster, 
+                                                                    login.c_str(),
+                                                                    passwd.c_str());
+                        if (ok != CASS_OK)
+                        {
+                            throw Exception(string("failed cassandra credentials for: ") 
+                                                    + login + " not working!",
+                                                    __FILE__, __LINE__);
+                        }
+                    } else if (login.size() || passwd.size())
+                    {
+                        throw Exception(string("must pass both login and passwd for cassandra credentials: "), 
+                                                __FILE__, __LINE__);
+                    }
                     for (auto it = ip_list.begin(); it != ip_list.end(); ++it)
                     {
                         cass_cluster_set_contact_points(m_cluster, it->c_str());
@@ -115,15 +135,19 @@ namespace {
 void CassConn::static_init(const std::set<std::string>& ip_list, 
                                 const std::string& keyspace,
                                 cass_duration_t use_timeout_in_micro,
+                                const std::string& login,
+                                const std::string& passwd,
                                 bool use_ssl)
 {
     LOG4CXX_INFO(logger, "connecting to Cassandra with hosts: " 
                             << cass_util::seq_to_string(ip_list)
                             << " and keyspace: \"" << keyspace << "\""
+                            << " and login: \"" << login << "\""
+                            << " and passwd: \"" << passwd << "\""
                             << " and timeout_in_micro: " << use_timeout_in_micro
                             << " and ssl option: " << (use_ssl ? "on" : "off"));
     timeout_in_micro = use_timeout_in_micro;
-    cass_base.reset(new CassBase(ip_list, keyspace, use_ssl));
+    cass_base.reset(new CassBase(ip_list, keyspace, login, passwd, use_ssl));
     if (keyspace.size())
     {
         if (change(string("Use " + keyspace)))

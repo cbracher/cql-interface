@@ -115,6 +115,12 @@ std::string RefIdImp::to_string() const
     return os.str();
 }
 
+void RefIdImp::assign(const std::string& str)
+{
+    istringstream is(str);
+    assign(is);
+}
+
 void RefIdImp::assign(std::istream& is)
 {
     unsigned index = 0;

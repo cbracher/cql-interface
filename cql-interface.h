@@ -11,6 +11,7 @@
 #include "cql-interface/CassConn.h"
 #include "cql-interface/RefId.h"
 #include "cql-interface/LogBaseInfo.h"
+#include "cql-interface/Exception.h"
 
 #endif 
 
