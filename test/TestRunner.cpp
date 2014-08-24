@@ -7,8 +7,7 @@
 #include "log4cxx/propertyconfigurator.h"
 #include "log4cxx/helpers/exception.h"
 
-#include "CassandraConn.h"
-#include "LogBaseInfo.h"
+#include "cql-interface/cql-interface.h"
 
 using namespace std;
 using namespace cb;
@@ -77,7 +76,7 @@ init_unit_test_suite( int argc, char* argv[] ) {
         cassandra_ips.push_back("127.0.0.1");
     }
     std::set<string> use_cass_ips(cassandra_ips.begin(), cassandra_ips.end());
-    CassandraConn::static_init(use_cass_ips, "cql_interface_test", cassandra_timeout);
+    CassConn::static_init(use_cass_ips, "cql_interface_test", cassandra_timeout);
 
     BOOST_GLOBAL_FIXTURE( Cleaner );
 

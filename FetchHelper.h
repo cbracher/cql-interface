@@ -6,9 +6,9 @@
 #include <map>
 #include <list>
 #include "log4cxx/logger.h"
-#include "CassandraConn.h"
-#include "RefId.h"
-#include "Util.h"
+#include "cql-interface/CassConn.h"
+#include "cql-interface/RefId.h"
+#include "cql-interface/CassUtil.h"
 
 namespace cb {
 
@@ -285,12 +285,12 @@ namespace cb {
 
         static void my_reset(CassDecimal& val)
         {
-            CassandraConn::reset(val);
+            CassConn::reset(val);
         }
 
         static void my_reset(CassInet& val)
         {
-            CassandraConn::reset(val);
+            CassConn::reset(val);
         }
 
         private:

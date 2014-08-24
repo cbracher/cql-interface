@@ -1,21 +1,18 @@
 #include "log4cxx/logger.h"
-#include <algorithm>
-#include <iostream>
-#include <iomanip>
-#include <fstream>
-#include <boost/functional/hash.hpp>
 #include <boost/algorithm/string/regex.hpp>
 #include <boost/algorithm/string.hpp>
-#include "Util.h"
+#include "CassUtil.h"
 
 using namespace std;
 using namespace log4cxx;
-using namespace boost::filesystem;
+
+namespace
+{
+   log4cxx::LoggerPtr logger(Logger::getLogger("cb.util"));
+}
 
 namespace cb {
-namespace util {
-
-  static log4cxx::LoggerPtr logger(Logger::getLogger("cb.util"));
+namespace cass_util {
 
   std::string random_string(const std::string& regex_mask, 
                             unsigned max_len,

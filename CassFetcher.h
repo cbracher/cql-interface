@@ -7,7 +7,7 @@
 namespace cb {
 
     // abstract base class for fetchers.
-    // used in CassandraConn::fetch and CassandraConn::async_fetch calls.
+    // used in CassConn::fetch and CassConn::async_fetch calls.
     // Encapsulate pulling the data out of select results.
     class CassFetcher
     {

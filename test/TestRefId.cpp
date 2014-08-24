@@ -1,7 +1,6 @@
 #include <boost/program_options.hpp>
 #include <boost/test/unit_test.hpp>
-#include "Util.h"
-#include "RefId.h"
+#include "cql-interface/cql-interface.h"
 
 #include "log4cxx/logger.h"
 
@@ -9,7 +8,7 @@ using namespace log4cxx;
 using namespace log4cxx::helpers;
 
 using namespace std;
-using namespace cb::util;
+using namespace cb::cass_util;
 using namespace cb;
 
 extern unsigned nruns;
@@ -114,10 +113,10 @@ BOOST_AUTO_TEST_CASE(test_refid_cass_constructor)
 
         RefId refid2 = uuid; 
         BOOST_REQUIRE_MESSAGE(!refid2.empty(), "refid2 not empty: " << refid2.to_string());
-        BOOST_REQUIRE_MESSAGE(refid2.to_string() == CassandraConn::uuid_to_string(uuid),
+        BOOST_REQUIRE_MESSAGE(refid2.to_string() == CassConn::uuid_to_string(uuid),
                                 "refid2.to_string()[" << refid2.to_string() 
-                                << "] == CassandraConn::uuid_to_string(uuid)[" 
-                                << CassandraConn::uuid_to_string(uuid) << "]");
+                                << "] == CassConn::uuid_to_string(uuid)[" 
+                                << CassConn::uuid_to_string(uuid) << "]");
     }
 }
 
@@ -131,10 +130,10 @@ BOOST_AUTO_TEST_CASE(test_refid_cass_assign)
         RefId refid2;
         refid2 = uuid; 
         BOOST_REQUIRE_MESSAGE(!refid2.empty(), "refid2 not empty: " << refid2.to_string());
-        BOOST_REQUIRE_MESSAGE(refid2.to_string() == CassandraConn::uuid_to_string(uuid),
+        BOOST_REQUIRE_MESSAGE(refid2.to_string() == CassConn::uuid_to_string(uuid),
                                 "refid2.to_string()[" << refid2.to_string() 
-                                << "] == CassandraConn::uuid_to_string(uuid)[" 
-                                << CassandraConn::uuid_to_string(uuid) << "]");
+                                << "] == CassConn::uuid_to_string(uuid)[" 
+                                << CassConn::uuid_to_string(uuid) << "]");
     }
 }
 

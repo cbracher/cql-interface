@@ -3,7 +3,7 @@
 
 #include <iostream>
 #include <vector>
-#include "CassandraConn.h"
+#include "cql-interface/CassConn.h"
 
 namespace cb {
 

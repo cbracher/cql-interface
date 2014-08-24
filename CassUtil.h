@@ -1,24 +1,15 @@
-#ifndef CB_UTIL_H
-#define CB_UTIL_H
+#ifndef CB_CASS_UTIL_H
+#define CB_CASS_UTIL_H
 
-#include <boost/spirit/include/qi.hpp>
-#include <boost/functional/hash.hpp>
-#include "boost/filesystem.hpp"
-#include "boost/tokenizer.hpp"
 #include "log4cxx/logger.h"
 
-#include <fstream>
-#include <vector>
-#include <list>
-#include <limits>
-#include <set>
 #include <string>
 #include <iostream>
 #include <sstream>
 
 namespace cb {
 
-namespace util {
+namespace cass_util {
 
   const std::string BaseTermNS = "/";
 
@@ -46,7 +37,7 @@ namespace util {
 
   template<typename T> std::string seq_to_string(const T& t) {
     std::ostringstream os;
-    cb::util::seq_print(os, t);
+    cb::cass_util::seq_print(os, t);
     return os.str();
   }
 

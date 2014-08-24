@@ -1,7 +1,7 @@
 #include <iomanip>
 #include <iostream>
 #include <sstream>
-#include "RefId.h"
+#include "cql-interface/RefId.h"
 
 using namespace cb;
 using namespace std;
@@ -105,7 +105,7 @@ bool RefIdImp::empty() const
 
 void RefIdImp::reset()
 {
-    CassandraConn::reset(m_uuid);
+    CassConn::reset(m_uuid);
 }
 
 std::string RefIdImp::to_string() const

@@ -6,7 +6,7 @@
 
 #include <iostream>
 
-#include "LogBaseInfo.h"
+#include "cql-interface/LogBaseInfo.h"
 
 using namespace cb;
 using namespace std;

@@ -20,7 +20,7 @@ link_directories(/usr/local/lib /usr/lib)
 
 add_library(${PROJECT_NAME} STATIC ${cpp_files})
 
-include_directories (/usr/include  /usr/local/include/ )
+include_directories (/usr/include  /usr/local/include/ ..)
 
 target_link_libraries(${PROJECT_NAME} 
                       boost_program_options.a

@@ -1,8 +1,8 @@
 #ifndef CB_FETCHER_H
 #define CB_FETCHER_H
 
-#include "FetchHelper.h"
-#include "CassandraConn.h"
+#include "cql-interface/FetchHelper.h"
+#include "cql-interface/CassConn.h"
 
 namespace cb {
 
@@ -19,7 +19,7 @@ namespace cb {
         {
             m_was_set = false;
             m_ptr = &obj;
-            return CassandraConn::fetch(query, *this) && m_was_set;
+            return CassConn::fetch(query, *this) && m_was_set;
         }
 
     protected:

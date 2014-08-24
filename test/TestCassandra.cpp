@@ -1,4 +1,4 @@
-#include "cql-interface.h"
+#include "cql-interface/cql-interface.h"
 
 #include <boost/program_options.hpp>
 #include <boost/test/unit_test.hpp>
@@ -9,7 +9,7 @@ using namespace log4cxx;
 using namespace log4cxx::helpers;
 
 using namespace std;
-using namespace cb::util;
+using namespace cb::cass_util;
 using namespace cb;
 
 extern unsigned nruns;
@@ -68,13 +68,13 @@ namespace
 
     template <typename T, typename Con> void test_container()
     {
-        bool ok = CassandraConn::truncate("other_test_data", consist);
+        bool ok = CassConn::truncate("other_test_data", consist);
         BOOST_REQUIRE_MESSAGE(ok, "cleared other_test_data");
         BOOST_REQUIRE_MESSAGE(ok, "adding some other_test_data");
-        BOOST_REQUIRE(CassandraConn::store("insert into other_test_data (docid, value) values(1, 'test data1')"));
-        BOOST_REQUIRE(CassandraConn::store("insert into other_test_data (docid, value) values(2, 'test data2')"));
-        BOOST_REQUIRE(CassandraConn::store("insert into other_test_data (docid, value) values(3, 'test data3')"));
-        BOOST_REQUIRE(CassandraConn::store("insert into other_test_data (docid, value) values(4, 'test data4')"));
+        BOOST_REQUIRE(CassConn::store("insert into other_test_data (docid, value) values(1, 'test data1')"));
+        BOOST_REQUIRE(CassConn::store("insert into other_test_data (docid, value) values(2, 'test data2')"));
+        BOOST_REQUIRE(CassConn::store("insert into other_test_data (docid, value) values(3, 'test data3')"));
+        BOOST_REQUIRE(CassConn::store("insert into other_test_data (docid, value) values(4, 'test data4')"));
 
         ConFetcher<T, Con> fetcher;
         Con val;
@@ -105,13 +105,13 @@ namespace
 
     template <typename MyCon> void test_async_container()
     {
-        bool ok = CassandraConn::truncate("other_test_data", consist);
+        bool ok = CassConn::truncate("other_test_data", consist);
         BOOST_REQUIRE_MESSAGE(ok, "cleared other_test_data");
         BOOST_REQUIRE_MESSAGE(ok, "adding some other_test_data");
-        BOOST_REQUIRE(CassandraConn::store("insert into other_test_data (docid, value) values(1, 'test data1')"));
-        BOOST_REQUIRE(CassandraConn::store("insert into other_test_data (docid, value) values(2, 'test data2')"));
-        BOOST_REQUIRE(CassandraConn::store("insert into other_test_data (docid, value) values(3, 'test data3')"));
-        BOOST_REQUIRE(CassandraConn::store("insert into other_test_data (docid, value) values(4, 'test data4')"));
+        BOOST_REQUIRE(CassConn::store("insert into other_test_data (docid, value) values(1, 'test data1')"));
+        BOOST_REQUIRE(CassConn::store("insert into other_test_data (docid, value) values(2, 'test data2')"));
+        BOOST_REQUIRE(CassConn::store("insert into other_test_data (docid, value) values(3, 'test data3')"));
+        BOOST_REQUIRE(CassConn::store("insert into other_test_data (docid, value) values(4, 'test data4')"));
 
         MyCon val1;
         CassFetcherHolderPtr holder1 = async_fetch<string,MyCon>("select value from other_test_data where docid in (1,2,10)", val1);
@@ -146,23 +146,23 @@ BOOST_AUTO_TEST_SUITE( CassandralTests )
 
 BOOST_AUTO_TEST_CASE(test_cassandra_store) 
 {
-    bool ok = CassandraConn::truncate("test_data", consist);
+    bool ok = CassConn::truncate("test_data", consist);
     BOOST_REQUIRE_MESSAGE(ok, "cleared test_data");
     RefId auto_refid;
     auto_refid.reset();
-    ok = CassandraConn::store("insert into test_data (docid, value) values(AUTO_UUID, 'test data1')", 
+    ok = CassConn::store("insert into test_data (docid, value) values(AUTO_UUID, 'test data1')", 
                               UUID_ENUM,
                               auto_refid,
                               consist);
     BOOST_REQUIRE_MESSAGE(!ok, "unable to insert non timebased uuid");
-    ok = CassandraConn::store("insert into test_data (docid, value) values(AUTO_UUID, 'test data1')", 
+    ok = CassConn::store("insert into test_data (docid, value) values(AUTO_UUID, 'test data1')", 
                               TIMEUUID_ENUM,
                               auto_refid,
                               consist);
     BOOST_REQUIRE_MESSAGE(ok && auto_refid, "found auto increment non-zero with text: " 
                                                 << auto_refid.to_string());
     auto_refid.reset();
-    ok = CassandraConn::store("insert into test_data (docid, value) values(AUTO_UUID, 'test data2')", 
+    ok = CassConn::store("insert into test_data (docid, value) values(AUTO_UUID, 'test data2')", 
                               TIMEUUID_ENUM,
                               auto_refid,
                               consist);
@@ -173,7 +173,7 @@ BOOST_AUTO_TEST_CASE(test_cassandra_store)
     TestFetcher fetcher;
     ostringstream cmd;
     cmd << "select * from test_data where docid = " << auto_refid;
-    ok = CassandraConn::fetch(cmd.str(), fetcher, consist);
+    ok = CassConn::fetch(cmd.str(), fetcher, consist);
     BOOST_REQUIRE_MESSAGE(ok, "did select");
     BOOST_REQUIRE_MESSAGE(fetcher.doc_pairs.size() == 1, 
                           "fetcher.doc_pairs.size() ("
@@ -193,7 +193,7 @@ BOOST_AUTO_TEST_CASE(test_cassandra_store)
     }
 
     fetcher.reset();
-    ok = CassandraConn::fetch("select * from test_data", fetcher, consist);
+    ok = CassConn::fetch("select * from test_data", fetcher, consist);
     BOOST_REQUIRE_MESSAGE(ok, "did select");
     BOOST_REQUIRE_MESSAGE(fetcher.doc_pairs.size() == 2, 
                           "fetcher.doc_pairs.size() ("
@@ -203,36 +203,36 @@ BOOST_AUTO_TEST_CASE(test_cassandra_store)
 
 BOOST_AUTO_TEST_CASE(test_change) 
 {
-    bool ok = CassandraConn::truncate("other_test_data", consist);
+    bool ok = CassConn::truncate("other_test_data", consist);
     BOOST_REQUIRE_MESSAGE(ok, "cleared other_test_data");
     BOOST_REQUIRE_MESSAGE(ok, "adding some other_test_data");
-    BOOST_REQUIRE(CassandraConn::store("insert into other_test_data (docid, value) values(1, 'test data1')"));
+    BOOST_REQUIRE(CassConn::store("insert into other_test_data (docid, value) values(1, 'test data1')"));
 
     Fetcher<string> fetcher;
     string val;
     BOOST_REQUIRE(fetcher.do_fetch("select value from other_test_data where docid=1", val));
     BOOST_REQUIRE(val=="test data1");
 
-    BOOST_REQUIRE(CassandraConn::change("update other_test_data set value = 'changed' where docid=1"));
+    BOOST_REQUIRE(CassConn::change("update other_test_data set value = 'changed' where docid=1"));
     BOOST_REQUIRE(fetcher.do_fetch("select value from other_test_data where docid=1", val));
     BOOST_REQUIRE(val=="changed");
 
-    BOOST_REQUIRE(!CassandraConn::change("update non_table set value = 'changed' where docid=1"));
+    BOOST_REQUIRE(!CassConn::change("update non_table set value = 'changed' where docid=1"));
 
 }
 
 BOOST_AUTO_TEST_CASE(test_escape) 
 {
-    bool ok = CassandraConn::truncate("other_test_data", consist);
+    bool ok = CassConn::truncate("other_test_data", consist);
     BOOST_REQUIRE_MESSAGE(ok, "cleared other_test_data");
     BOOST_REQUIRE_MESSAGE(ok, "adding some other_test_data");
 
     string value = "line1\nline2\n'intenal quote'";
     ostringstream cmd;
     cmd << "insert into other_test_data (docid, value) values(1, '";
-    CassandraConn::escape(cmd, value);
+    CassConn::escape(cmd, value);
     cmd << "')";
-    BOOST_REQUIRE(CassandraConn::store(cmd.str()));
+    BOOST_REQUIRE(CassConn::store(cmd.str()));
 
     Fetcher<string> fetcher;
     string val;
@@ -243,13 +243,13 @@ BOOST_AUTO_TEST_CASE(test_escape)
 
 BOOST_AUTO_TEST_CASE(test_single_fetcher) 
 {
-    bool ok = CassandraConn::truncate("other_test_data", consist);
+    bool ok = CassConn::truncate("other_test_data", consist);
     BOOST_REQUIRE_MESSAGE(ok, "cleared other_test_data");
     BOOST_REQUIRE_MESSAGE(ok, "adding some other_test_data");
-    BOOST_REQUIRE(CassandraConn::store("insert into other_test_data (docid, value) values(1, 'test data1')"));
-    BOOST_REQUIRE(CassandraConn::store("insert into other_test_data (docid, value) values(2, 'test data2')"));
-    BOOST_REQUIRE(CassandraConn::store("insert into other_test_data (docid, value) values(3, 'test data3')"));
-    BOOST_REQUIRE(CassandraConn::store("insert into other_test_data (docid, value) values(4, 'test data4')"));
+    BOOST_REQUIRE(CassConn::store("insert into other_test_data (docid, value) values(1, 'test data1')"));
+    BOOST_REQUIRE(CassConn::store("insert into other_test_data (docid, value) values(2, 'test data2')"));
+    BOOST_REQUIRE(CassConn::store("insert into other_test_data (docid, value) values(3, 'test data3')"));
+    BOOST_REQUIRE(CassConn::store("insert into other_test_data (docid, value) values(4, 'test data4')"));
 
     Fetcher<string> fetcher;
     string val;
@@ -282,10 +282,10 @@ BOOST_AUTO_TEST_CASE(test_container_list_fetcher)
 
 BOOST_AUTO_TEST_CASE(test_fetcher_coll) 
 {
-    bool ok = CassandraConn::truncate("coll_test_data", consist);
+    bool ok = CassConn::truncate("coll_test_data", consist);
     BOOST_REQUIRE_MESSAGE(ok, "cleared coll_test_data");
     BOOST_REQUIRE_MESSAGE(ok, "adding some coll_test_data");
-    BOOST_REQUIRE(CassandraConn::store("insert into coll_test_data (docid, value_list, value_set, value_map) values(1, [1,2,4,8], {1,2,4,8}, {1:2, 2:4, 4:8, 8:16})"));
+    BOOST_REQUIRE(CassConn::store("insert into coll_test_data (docid, value_list, value_set, value_map) values(1, [1,2,4,8], {1,2,4,8}, {1:2, 2:4, 4:8, 8:16})"));
 
     {
         Fetcher<vector<int>> fetcher;
@@ -341,11 +341,11 @@ BOOST_AUTO_TEST_CASE(test_fetcher_coll)
 
 BOOST_AUTO_TEST_CASE(test_fetcher_multi_coll) 
 {
-    bool ok = CassandraConn::truncate("coll_test_data", consist);
+    bool ok = CassConn::truncate("coll_test_data", consist);
     BOOST_REQUIRE_MESSAGE(ok, "cleared coll_test_data");
     BOOST_REQUIRE_MESSAGE(ok, "adding some coll_test_data");
-    BOOST_REQUIRE(CassandraConn::store("insert into coll_test_data (docid, value_list) values(1, [1,2,4,8])"));
-    BOOST_REQUIRE(CassandraConn::store("insert into coll_test_data (docid, value_list) values(2, [11,12,14,18])"));
+    BOOST_REQUIRE(CassConn::store("insert into coll_test_data (docid, value_list) values(1, [1,2,4,8])"));
+    BOOST_REQUIRE(CassConn::store("insert into coll_test_data (docid, value_list) values(2, [11,12,14,18])"));
 
     {
         ConFetcher<vector<int>, vector<vector<int>>> fetcher;
@@ -364,13 +364,13 @@ BOOST_AUTO_TEST_CASE(test_fetcher_multi_coll)
 
 BOOST_AUTO_TEST_CASE(test_async_fetcher) 
 {
-    bool ok = CassandraConn::truncate("other_test_data", consist);
+    bool ok = CassConn::truncate("other_test_data", consist);
     BOOST_REQUIRE_MESSAGE(ok, "cleared other_test_data");
     BOOST_REQUIRE_MESSAGE(ok, "adding some other_test_data");
-    BOOST_REQUIRE(CassandraConn::store("insert into other_test_data (docid, value) values(1, 'test data1')"));
-    BOOST_REQUIRE(CassandraConn::store("insert into other_test_data (docid, value) values(2, 'test data2')"));
-    BOOST_REQUIRE(CassandraConn::store("insert into other_test_data (docid, value) values(3, 'test data3')"));
-    BOOST_REQUIRE(CassandraConn::store("insert into other_test_data (docid, value) values(4, 'test data4')"));
+    BOOST_REQUIRE(CassConn::store("insert into other_test_data (docid, value) values(1, 'test data1')"));
+    BOOST_REQUIRE(CassConn::store("insert into other_test_data (docid, value) values(2, 'test data2')"));
+    BOOST_REQUIRE(CassConn::store("insert into other_test_data (docid, value) values(3, 'test data3')"));
+    BOOST_REQUIRE(CassConn::store("insert into other_test_data (docid, value) values(4, 'test data4')"));
 
     string val1;
     CassFetcherHolderPtr holder1 = async_fetch("select value from other_test_data where docid=1", val1);
@@ -410,13 +410,13 @@ BOOST_AUTO_TEST_CASE(test_async_con_list_fetcher)
 
 BOOST_AUTO_TEST_CASE(test_cassandra_store_if_exists) 
 {
-    bool ok = CassandraConn::truncate("test_data", consist);
+    bool ok = CassConn::truncate("test_data", consist);
     BOOST_REQUIRE_MESSAGE(ok, "cleared test_data");
     for (unsigned i=0; i<nruns; ++i)
     {
         RefId auto_refid;
         auto_refid.reset();
-        ok = CassandraConn::store("insert into test_data (docid, value) values(AUTO_UUID, 'test data1')", 
+        ok = CassConn::store("insert into test_data (docid, value) values(AUTO_UUID, 'test data1')", 
                                 TIMEUUID_ENUM,
                                 auto_refid,
                                 consist);
@@ -426,11 +426,11 @@ BOOST_AUTO_TEST_CASE(test_cassandra_store_if_exists)
         query << "insert into test_data (docid, value) values("
                                 << auto_refid << ", 'test data update') if not exists";
         TestIfAppliedFetcher fetcher_if;
-        ok = CassandraConn::fetch(query.str(), fetcher_if, consist);
+        ok = CassConn::fetch(query.str(), fetcher_if, consist);
         BOOST_REQUIRE_MESSAGE(!ok, "cannot insert over pre-existing: " << auto_refid);
 
         TestFetcher fetcher;
-        ok = CassandraConn::fetch("select * from test_data", fetcher, consist);
+        ok = CassConn::fetch("select * from test_data", fetcher, consist);
         BOOST_REQUIRE_MESSAGE(ok, "did select");
         BOOST_REQUIRE_MESSAGE(fetcher.doc_pairs.size() == i+1, 
                             "fetcher.doc_pairs.size() ("
@@ -441,27 +441,27 @@ BOOST_AUTO_TEST_CASE(test_cassandra_store_if_exists)
 
 BOOST_AUTO_TEST_CASE(test_cassandra_store_if_exists_2) 
 {
-    bool ok = CassandraConn::truncate("test_data", consist);
+    bool ok = CassConn::truncate("test_data", consist);
     BOOST_REQUIRE_MESSAGE(ok, "cleared test_data");
     for (unsigned i=0; i<nruns; ++i)
     {
         RefId refid;
         CassUuid time_uuid;
-        CassandraConn::set_uuid_from_time(time_uuid);
+        CassConn::set_uuid_from_time(time_uuid);
         refid = time_uuid;
         ostringstream query;
         query << "insert into test_data (docid, value) values("
                                 << refid << ", 'test data update')";
-        ok = CassandraConn::store_if_not_exists(query.str()); 
+        ok = CassConn::store_if_not_exists(query.str()); 
         BOOST_REQUIRE_MESSAGE(ok, "inserted into test data: " << refid
                                     << " on first store_if_not_exists");
 
-        ok = CassandraConn::store_if_not_exists(query.str()); 
+        ok = CassConn::store_if_not_exists(query.str()); 
         BOOST_REQUIRE_MESSAGE(!ok, "failed insert into test data: " << refid
                                     << " on second store_if_not_exists");
 
         TestFetcher fetcher;
-        ok = CassandraConn::fetch("select * from test_data", fetcher, consist);
+        ok = CassConn::fetch("select * from test_data", fetcher, consist);
         BOOST_REQUIRE_MESSAGE(fetcher.doc_pairs.size() == i+1, 
                             "fetcher.doc_pairs.size() ("
                             <<  fetcher.doc_pairs.size()

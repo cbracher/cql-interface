@@ -5,7 +5,7 @@ project(cql_interface_tests)
 FILE(GLOB test_files "${CMAKE_CURRENT_SOURCE_DIR}/*.cpp")
 add_executable(${PROJECT_NAME} ${test_files} ${main_files})
 
-include_directories (/usr/include  /usr/local/include/  ..)
+include_directories (/usr/include  /usr/local/include/  ../..)
 
 target_link_libraries(${PROJECT_NAME} cql_interface )
 

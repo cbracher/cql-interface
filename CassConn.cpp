@@ -5,11 +5,11 @@
 
 #include <atomic>
 
-#include "Util.h"
-#include "RefId.h"
-#include "Exception.h"
-#include "CassandraConn.h"
-#include "Fetcher.h"
+#include "cql-interface/CassUtil.h"
+#include "cql-interface/RefId.h"
+#include "cql-interface/Exception.h"
+#include "cql-interface/CassConn.h"
+#include "cql-interface/Fetcher.h"
 
 using namespace cb;
 using namespace std;
@@ -112,13 +112,13 @@ namespace {
     };
 }
 
-void CassandraConn::static_init(const std::set<std::string>& ip_list, 
+void CassConn::static_init(const std::set<std::string>& ip_list, 
                                 const std::string& keyspace,
                                 cass_duration_t use_timeout_in_micro,
                                 bool use_ssl)
 {
     LOG4CXX_INFO(logger, "connecting to Cassandra with hosts: " 
-                            << util::seq_to_string(ip_list)
+                            << cass_util::seq_to_string(ip_list)
                             << " and keyspace: \"" << keyspace << "\""
                             << " and timeout_in_micro: " << use_timeout_in_micro
                             << " and ssl option: " << (use_ssl ? "on" : "off"));
@@ -136,7 +136,7 @@ void CassandraConn::static_init(const std::set<std::string>& ip_list,
     }
 }
 
-bool CassandraConn::store(const std::string& query, CassConsistency consist)
+bool CassConn::store(const std::string& query, CassConsistency consist)
 {
     bool retVal = false;
 
@@ -173,7 +173,7 @@ bool CassandraConn::store(const std::string& query, CassConsistency consist)
     return retVal;
 }
 
-bool CassandraConn::store(const std::string& query_in, 
+bool CassConn::store(const std::string& query_in, 
                           UUID_TYPE_ENUM uuid_opt,
                           RefIdImp& auto_increment_id,
                           CassConsistency consist)
@@ -200,13 +200,13 @@ bool CassandraConn::store(const std::string& query_in,
     return store(query, consist);
 }
 
-bool CassandraConn::change(const std::string& query, 
+bool CassConn::change(const std::string& query, 
                            CassConsistency consist)
 {
     return store(query, consist);
 }
 
-bool CassandraConn::truncate(const std::string& table_name, 
+bool CassConn::truncate(const std::string& table_name, 
                              CassConsistency consist)
 {
     string cmd = string("truncate ") + table_name;
@@ -239,13 +239,13 @@ bool CassandraConn::truncate(const std::string& table_name,
     return truncated;
 }
 
-bool CassandraConn::store_if_not_exists(const std::string& query, 
+bool CassConn::store_if_not_exists(const std::string& query, 
                                         CassConsistency consist)
 {
     string use_query = query + " if not exists";
 
     TestIfAppliedFetcher fetcher_if;
-    bool retVal = CassandraConn::fetch(use_query, fetcher_if, consist);
+    bool retVal = CassConn::fetch(use_query, fetcher_if, consist);
     if (!retVal)
     {
         LOG4CXX_DEBUG(logger, "failed: \"" << use_query 
@@ -254,7 +254,7 @@ bool CassandraConn::store_if_not_exists(const std::string& query,
     return retVal;
 }
 
-bool CassandraConn::async_fetch(const std::string& query, 
+bool CassConn::async_fetch(const std::string& query, 
                                 CassFetcherPtr fetcher,
                                 CassFetcherHolderPtr fetch_holder,
                                 CassConsistency consist)
@@ -285,7 +285,7 @@ bool CassandraConn::async_fetch(const std::string& query,
 }
 
 
-bool CassandraConn::fetch(const std::string& query, 
+bool CassConn::fetch(const std::string& query, 
                           CassFetcher& fetcher,
                           CassConsistency consist)
 {
@@ -308,14 +308,14 @@ bool CassandraConn::fetch(const std::string& query,
     return retVal;
 }
 
-bool CassandraConn::process_future(CassFuture* future, 
+bool CassConn::process_future(CassFuture* future, 
                                    CassFetcher& fetcher, 
                                    const std::string& query)
 {
     bool retVal = false;
     if (!future)
     {
-        LOG4CXX_ERROR(logger, "getting null future in CassandraConn::process_future");
+        LOG4CXX_ERROR(logger, "getting null future in CassConn::process_future");
         return retVal;
     }
     cass_future_wait_timed(future, timeout_in_micro);
@@ -361,17 +361,17 @@ bool CassandraConn::process_future(CassFuture* future,
     return retVal;
 }
 
-void CassandraConn::set_uuid_rand(CassUuid uuid)
+void CassConn::set_uuid_rand(CassUuid uuid)
 {
     cass_uuid_generate_random(uuid);
 }
 
-void CassandraConn::set_uuid_from_time(CassUuid uuid)
+void CassConn::set_uuid_from_time(CassUuid uuid)
 {
     cass_uuid_generate_time(uuid);
 }
 
-void CassandraConn::reset(CassUuid uuid)
+void CassConn::reset(CassUuid uuid)
 {
     for (size_t i=0; i<CASS_UUID_NUM_BYTES; ++i)
     {
@@ -379,24 +379,24 @@ void CassandraConn::reset(CassUuid uuid)
     }
 }
 
-std::string CassandraConn::uuid_to_string(CassUuid uuid)
+std::string CassConn::uuid_to_string(CassUuid uuid)
 {
     string retVal;
     uuid_to_string(uuid, retVal);
     return retVal;
 }
 
-void CassandraConn::uuid_to_string(CassUuid uuid, std::string& retVal)
+void CassConn::uuid_to_string(CassUuid uuid, std::string& retVal)
 {
     char tmp[CASS_UUID_STRING_LENGTH];
     cass_uuid_string(uuid, tmp);
     retVal = tmp;
 }
 
-void CassandraConn::reset(CassDecimal& val)
+void CassConn::reset(CassDecimal& val)
 {
     // BUGBUG - not clear what to do here
-    LOG4CXX_ERROR(logger, "CassandraConn::reset(CassDecimal& val) called but not valid");
+    LOG4CXX_ERROR(logger, "CassConn::reset(CassDecimal& val) called but not valid");
     /*
     if (val.varint.data)
     {
@@ -408,7 +408,7 @@ void CassandraConn::reset(CassDecimal& val)
     */
 }
 
-void CassandraConn::reset(CassInet& val)
+void CassConn::reset(CassInet& val)
 {
     for (size_t i=0; i<CASS_INET_V6_LENGTH; ++i)
     {
@@ -416,7 +416,7 @@ void CassandraConn::reset(CassInet& val)
     }
 }
 
-void CassandraConn::escape(std::ostream& os, const std::string& text)
+void CassConn::escape(std::ostream& os, const std::string& text)
 {
     for (auto it = text.begin(); it != text.end(); ++it)
     {

@@ -3,13 +3,14 @@
 
 // general include file
 
-#include "FetchHelper.h"
-#include "Fetcher.h"
-#include "FetcherAsync.h"
-#include "ConFetcher.h"
-#include "ConFetcherAsync.h"
-#include "CassandraConn.h"
-#include "RefId.h"
+#include "cql-interface/FetchHelper.h"
+#include "cql-interface/Fetcher.h"
+#include "cql-interface/FetcherAsync.h"
+#include "cql-interface/ConFetcher.h"
+#include "cql-interface/ConFetcherAsync.h"
+#include "cql-interface/CassConn.h"
+#include "cql-interface/RefId.h"
+#include "cql-interface/LogBaseInfo.h"
 
 #endif 
 

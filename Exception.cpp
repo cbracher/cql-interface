@@ -1,6 +1,6 @@
 #include "log4cxx/logger.h"
-#include "Exception.h"
-#include "Util.h"
+#include "cql-interface/Exception.h"
+#include "cql-interface/CassUtil.h"
 
 using namespace std;
 using namespace cb;
@@ -18,22 +18,22 @@ Exception::Exception(const std::string& what_in,
 {
   switch (e_level) {
     case E_ERROR:
-       LOG4CXX_ERROR(logger, cb::util::to_string(*this));
+       LOG4CXX_ERROR(logger, cb::cass_util::to_string(*this));
        break;
     case E_FATAL:
-       LOG4CXX_FATAL(logger, cb::util::to_string(*this));
+       LOG4CXX_FATAL(logger, cb::cass_util::to_string(*this));
        break;
     case E_WARN:
-       LOG4CXX_WARN(logger, cb::util::to_string(*this));
+       LOG4CXX_WARN(logger, cb::cass_util::to_string(*this));
        break;
     case E_INFO:
-       LOG4CXX_INFO(logger, cb::util::to_string(*this));
+       LOG4CXX_INFO(logger, cb::cass_util::to_string(*this));
        break;
     case E_DEBUG:
-       LOG4CXX_DEBUG(logger, cb::util::to_string(*this));
+       LOG4CXX_DEBUG(logger, cb::cass_util::to_string(*this));
        break;
     case E_TRACE:
-       LOG4CXX_ERROR(logger, cb::util::to_string(*this));
+       LOG4CXX_ERROR(logger, cb::cass_util::to_string(*this));
        break;
   }
 }

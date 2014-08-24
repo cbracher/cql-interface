@@ -1,7 +1,7 @@
 #ifndef CB_CASS_FETCHER_HOLDER_H
 #define CB_CASS_FETCHER_HOLDER_H
 
-#include "CassFetcher.h"
+#include "cql-interface/CassFetcher.h"
 
 namespace cb {
 
@@ -13,7 +13,7 @@ namespace cb {
 
         CassFetcherHolder()
         : m_future(0),
-          m_was_called(true)    // to avoid CassandraConn evaluation
+          m_was_called(true)    // to avoid CassConn evaluation
         {
         }
 
@@ -38,7 +38,7 @@ namespace cb {
     private:
 
         // copy semantics are almost ok, but would prefer to avoid 
-        // 2 calls on CassandraConn::process_future
+        // 2 calls on CassConn::process_future
         CassFetcherHolder(const CassFetcherHolder&) = delete;
         CassFetcherHolder& operator=(const CassFetcherHolder&) = delete;
 

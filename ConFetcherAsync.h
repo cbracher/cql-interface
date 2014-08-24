@@ -1,8 +1,8 @@
 #ifndef CB_CON_FETCHER_ASYNC_H
 #define CB_CON_FETCHER_ASYNC_H
 
-#include "FetchHelper.h"
-#include "CassandraConn.h"
+#include "cql-interface/FetchHelper.h"
+#include "cql-interface/CassConn.h"
 
 namespace cb {
 
@@ -53,7 +53,7 @@ namespace cb {
                = boost::make_shared<ConFetcherAsync<T,Con>>(query, obj);
         CassFetcherHolderPtr holder = boost::make_shared<CassFetcherHolder>();
 
-        CassandraConn::async_fetch(query, fetcher, holder, consist);
+        CassConn::async_fetch(query, fetcher, holder, consist);
         return holder;
     }
 }

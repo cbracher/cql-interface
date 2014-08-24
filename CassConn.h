@@ -4,7 +4,7 @@
 #include <string>
 #include <set>
 #include <cassandra.h>
-#include "CassFetcherHolder.h"
+#include "cql-interface/CassFetcherHolder.h"
 
 #define CASS_UUID_NUM_BYTES  16
 
@@ -13,7 +13,7 @@ namespace cb {
     class RefIdImp;
 
     enum UUID_TYPE_ENUM { TIMEUUID_ENUM, UUID_ENUM};
-    class CassandraConn {
+    class CassConn {
     public:
   
         // list of ips where we can find cassandra
@@ -69,16 +69,16 @@ namespace cb {
         // text fields must escape a "'" with another "'" for "''"
         static void escape(std::ostream& os, const std::string& text);
 
-        // utility call used in CassandraConn::fetch as well as by CassFetcherHolder
+        // utility call used in CassConn::fetch as well as by CassFetcherHolder
         // for asyncronous processing
         static bool process_future(CassFuture* future, 
                                    CassFetcher& fetcher, 
                                    const std::string& query);
 
-        CassandraConn() = delete;
-        ~CassandraConn() = delete;
-        CassandraConn& operator=(const CassandraConn&) = delete;
-		CassandraConn(const CassandraConn&) = delete;
+        CassConn() = delete;
+        ~CassConn() = delete;
+        CassConn& operator=(const CassConn&) = delete;
+		CassConn(const CassConn&) = delete;
     };
 
     inline std::ostream& operator<<(std::ostream& os, const CassUuid& ref_id)

@@ -18,11 +18,11 @@ examples from tests (in test/TestCassandra.cpp):
 
 store some data:
 
-    CassandraConn::store("insert into other_test_data (docid, value) values(1, 'test data1')");
+    CassConn::store("insert into other_test_data (docid, value) values(1, 'test data1')");
 
 change some data
 
-    BOOST_REQUIRE(CassandraConn::store("insert into other_test_data (docid, value) values(1, 'test data1')"));
+    BOOST_REQUIRE(CassConn::store("insert into other_test_data (docid, value) values(1, 'test data1')"));
 
     Fetcher<string> fetcher;
 
@@ -32,7 +32,7 @@ change some data
 
     BOOST_REQUIRE(val=="test data1");
 
-    BOOST_REQUIRE(CassandraConn::change("update other_test_data set value = 'changed' where docid=1"));
+    BOOST_REQUIRE(CassConn::change("update other_test_data set value = 'changed' where docid=1"));
 
     BOOST_REQUIRE(fetcher.do_fetch("select value from other_test_data where docid=1", val));
 
@@ -41,7 +41,7 @@ change some data
 
 single fetch:
 
-    CassandraConn::store("insert into other_test_data (docid, value) values(1, 'test data1')");
+    CassConn::store("insert into other_test_data (docid, value) values(1, 'test data1')");
 
     Fetcher<string> fetcher;
 
@@ -54,7 +54,7 @@ single fetch:
 
 async fetch:
 
-    CassandraConn::store("insert into other_test_data (docid, value) values(1, 'test data1')");
+    CassConn::store("insert into other_test_data (docid, value) values(1, 'test data1')");
 
     string val1;
 
@@ -67,7 +67,7 @@ async fetch:
 
 pulling collections:
 
-    CassandraConn::store("insert into coll_test_data (docid, value_list) values(1, [1,2,4,8])");
+    CassConn::store("insert into coll_test_data (docid, value_list) values(1, [1,2,4,8])");
 
     Fetcher<vector<int>> fetcher;
 
@@ -84,7 +84,7 @@ pulling collections:
 
 Added calls to truncate tables since have seen some odd timeouts on truncation. This will truncate and then wait as long as it takes for the table to finish truncation.
 
-        bool ok = CassandraConn::truncate("other_test_data", consist);
+        bool ok = CassConn::truncate("other_test_data", consist);
 
         BOOST_REQUIRE_MESSAGE(ok, "cleared other_test_data");
 
@@ -95,7 +95,7 @@ Added explicit calls to support paxos transaction if not exists calls
 
         CassUuid time_uuid;
 
-        CassandraConn::set_uuid_from_time(time_uuid);
+        CassConn::set_uuid_from_time(time_uuid);
 
         refid = time_uuid;
 
@@ -105,20 +105,20 @@ Added explicit calls to support paxos transaction if not exists calls
 
                                 << refid << ", 'test data update')";
 
-        ok = CassandraConn::store_if_not_exists(query.str()); 
+        ok = CassConn::store_if_not_exists(query.str()); 
 
         BOOST_REQUIRE_MESSAGE(ok, "inserted into test data: " << refid
 
                                     << " on first store_if_not_exists");
 
-        ok = CassandraConn::store_if_not_exists(query.str()); 
+        ok = CassConn::store_if_not_exists(query.str()); 
 
         BOOST_REQUIRE_MESSAGE(!ok, "failed insert into test data: " << refid
 
                                     << " on second store_if_not_exists");
 
 
-Added CassandraConn::escape call to use for escaping string data.
+Added CassConn::escape call to use for escaping string data.
 
     string value = "line1\nline2\n'intenal quote'";
 
@@ -126,10 +126,10 @@ Added CassandraConn::escape call to use for escaping string data.
 
     cmd << "insert into other_test_data (docid, value) values(1, '";
 
-    CassandraConn::escape(cmd, value);
+    CassConn::escape(cmd, value);
 
     cmd << "')";
 
-    BOOST_REQUIRE(CassandraConn::store(cmd.str()));
+    BOOST_REQUIRE(CassConn::store(cmd.str()));
 
 

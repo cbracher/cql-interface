@@ -1,5 +1,5 @@
-#include "CassFetcherHolder.h"
-#include "CassandraConn.h"
+#include "cql-interface/CassFetcherHolder.h"
+#include "cql-interface/CassConn.h"
 
 using namespace cb;
 
@@ -29,7 +29,7 @@ CassFetcherPtr CassFetcherHolder::get_fetcher()
     if (m_future && m_fetcher && !m_was_called)
     {
         m_was_called = true;
-        CassandraConn::process_future(m_future, *m_fetcher, m_query);
+        CassConn::process_future(m_future, *m_fetcher, m_query);
     }
     return m_fetcher;
 }
@@ -39,7 +39,7 @@ bool CassFetcherHolder::was_set()
     if (m_future && m_fetcher && !m_was_called)
     {
         m_was_called = true;
-        CassandraConn::process_future(m_future, *m_fetcher, m_query);
+        CassConn::process_future(m_future, *m_fetcher, m_query);
     }
     return (m_fetcher ? m_fetcher->was_set() : false);
 }
