@@ -3,12 +3,15 @@ cql-interface
 
 provides an interface on top of the latest cassandra c++ cpp-driver from datastax.
 
-https://github.com/datastax/cpp-driver
+    https://github.com/datastax/cpp-driver
 
 
 Main utility is simplifying calls to store, update, truncate or select data. Also wraps the CassUuid in RefIdImp, which makes it easier to manage uuid values. 
 
 Also add Fetcher and ConFetcher which work with FetchHelper to ease pulling data out of select statements.
+
+
+Before running your tests, load the cassanda schemas in test/cassandra_schema.txt
 
 
 examples from tests (in test/TestCassandra.cpp):
@@ -20,7 +23,6 @@ store some data:
 change some data
 
     BOOST_REQUIRE(CassandraConn::store("insert into other_test_data (docid, value) values(1, 'test data1')"));
-
 
     Fetcher<string> fetcher;
 

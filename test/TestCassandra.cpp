@@ -217,6 +217,8 @@ BOOST_AUTO_TEST_CASE(test_change)
     BOOST_REQUIRE(fetcher.do_fetch("select value from other_test_data where docid=1", val));
     BOOST_REQUIRE(val=="changed");
 
+    BOOST_REQUIRE(!CassandraConn::change("update non_table set value = 'changed' where docid=1"));
+
 }
 
 BOOST_AUTO_TEST_CASE(test_escape) 
