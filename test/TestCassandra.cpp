@@ -102,6 +102,43 @@ namespace
         BOOST_REQUIRE(!fetcher.do_fetch("select value from bad_table where docid in (5,6)", val));
         BOOST_REQUIRE(val.size()==0);
     }
+
+    template <typename MyCon> void test_async_container()
+    {
+        bool ok = CassandraConn::truncate("other_test_data", consist);
+        BOOST_REQUIRE_MESSAGE(ok, "cleared other_test_data");
+        BOOST_REQUIRE_MESSAGE(ok, "adding some other_test_data");
+        BOOST_REQUIRE(CassandraConn::store("insert into other_test_data (docid, value) values(1, 'test data1')"));
+        BOOST_REQUIRE(CassandraConn::store("insert into other_test_data (docid, value) values(2, 'test data2')"));
+        BOOST_REQUIRE(CassandraConn::store("insert into other_test_data (docid, value) values(3, 'test data3')"));
+        BOOST_REQUIRE(CassandraConn::store("insert into other_test_data (docid, value) values(4, 'test data4')"));
+
+        MyCon val1;
+        CassFetcherHolderPtr holder1 = async_fetch<string,MyCon>("select value from other_test_data where docid in (1,2,10)", val1);
+        MyCon val2;
+        CassFetcherHolderPtr holder2 = async_fetch<string,MyCon>("select value from other_test_data where docid in (4,3)", val2);
+
+        BOOST_REQUIRE(holder2 && holder2->get_fetcher());
+        BOOST_REQUIRE(val2.size() == 2);
+        BOOST_REQUIRE(val2.front() == "test data3"
+                        || val2.front() == "test data4");
+        BOOST_REQUIRE(val2.back() == "test data3"
+                        || val2.back() == "test data4");
+        BOOST_REQUIRE(val2.back() != val2.front());
+
+        // additional checks not an issue
+        BOOST_REQUIRE(holder2 && holder2->get_fetcher());
+        BOOST_REQUIRE(holder2 && holder2->get_fetcher());
+
+        BOOST_REQUIRE(holder1 && holder1->get_fetcher());
+        BOOST_REQUIRE(val1.size() == 2);
+        BOOST_REQUIRE(val1.front() == "test data1"
+                        || val1.front() == "test data2");
+        BOOST_REQUIRE(val1.back() == "test data1"
+                        || val1.back() == "test data2");
+        BOOST_REQUIRE(val1.back() != val1.front());
+
+    }
 }
 
 
@@ -321,6 +358,15 @@ BOOST_AUTO_TEST_CASE(test_async_fetcher)
     BOOST_REQUIRE(val1=="test data1");
 }
 
+BOOST_AUTO_TEST_CASE(test_async_con_vec_fetcher) 
+{
+    test_async_container<vector<string>>();
+}
+
+BOOST_AUTO_TEST_CASE(test_async_con_list_fetcher) 
+{
+    test_async_container<list<string>>();
+}
 
 BOOST_AUTO_TEST_CASE(test_cassandra_store_if_exists) 
 {

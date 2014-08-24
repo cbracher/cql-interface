@@ -35,4 +35,11 @@ target_link_libraries(${PROJECT_NAME}
                       libuv.a
                       pthread)
 
+install (PROGRAMS ${CMAKE_CURRENT_BINARY_DIR}/libcql_interface.a
+         DESTINATION "/usr/local/lib")
+
+FILE(GLOB header_files "${CMAKE_CURRENT_SOURCE_DIR}/*.h")
+install (FILES ${header_files}
+         DESTINATION "/usr/local/include/cql-interface")
+
 add_subdirectory (test)
