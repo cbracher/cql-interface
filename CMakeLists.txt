@@ -33,7 +33,8 @@ target_link_libraries(${PROJECT_NAME}
                       ssl
                       crypto
                       libuv.a
-                      pthread)
+                      pthread
+                      rt)
 
 install (PROGRAMS ${CMAKE_CURRENT_BINARY_DIR}/libcql_interface.a
          DESTINATION "/usr/local/lib")

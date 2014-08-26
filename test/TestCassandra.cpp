@@ -280,6 +280,33 @@ BOOST_AUTO_TEST_CASE(test_container_list_fetcher)
     test_container<string, list<string> >();
 }
 
+BOOST_AUTO_TEST_CASE(test_blob) 
+{
+    bool ok = CassConn::truncate("blob_data", consist);
+    BOOST_REQUIRE_MESSAGE(ok, "cleared coll_test_data");
+
+    {
+        BOOST_REQUIRE(CassConn::store("insert into blob_data (docid, value) values (1, textAsBlob('hello world'));"));
+        Fetcher<CassBytes> fetcher;
+        CassBytes val;
+        BOOST_REQUIRE(fetcher.do_fetch("select value from blob_data where docid=1", val));
+        BOOST_REQUIRE(val.size);
+        string val_out(reinterpret_cast<const char*>(val.data), val.size);
+        BOOST_REQUIRE_MESSAGE(val_out == "hello world",
+                                "val_out[" << val_out << "] == 'hello world'");
+    }
+    for (unsigned n=0; n<64; ++n)
+    {
+        ostringstream cmd;
+        cmd << "insert into blob_data (docid, value) values (3, bigintAsBlob(" << n << "));";
+        BOOST_REQUIRE_MESSAGE(CassConn::store(cmd.str()), cmd.str());
+        Fetcher<int64_t> fetcher;
+        int64_t val;
+        BOOST_REQUIRE(fetcher.do_fetch("select blobAsBigint(value) from blob_data where docid=3", val));
+        BOOST_REQUIRE_MESSAGE(val == n, "val[" << val << "] == n[" << n << "]");
+    }
+}
+
 BOOST_AUTO_TEST_CASE(test_fetcher_coll) 
 {
     bool ok = CassConn::truncate("coll_test_data", consist);

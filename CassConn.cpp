@@ -143,7 +143,7 @@ void CassConn::static_init(const std::set<std::string>& ip_list,
                             << cass_util::seq_to_string(ip_list)
                             << " and keyspace: \"" << keyspace << "\""
                             << " and login: \"" << login << "\""
-                            << " and passwd: \"" << passwd << "\""
+                            << " and passwd: <not shown>"
                             << " and timeout_in_micro: " << use_timeout_in_micro
                             << " and ssl option: " << (use_ssl ? "on" : "off"));
     timeout_in_micro = use_timeout_in_micro;

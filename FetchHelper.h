@@ -241,6 +241,12 @@ namespace cb {
             return rc == CASS_OK;
         }
 
+        static bool did_extract(CassBytes& val, const CassValue* cass_value)
+        {
+            CassError rc = cass_value_get_bytes(cass_value, &val);
+            return rc == CASS_OK;
+        }
+
         static bool did_extract(CassInet& val, const CassValue* cass_value)
         {
             CassError rc = cass_value_get_inet(cass_value, &val);
@@ -286,6 +292,12 @@ namespace cb {
         static void my_reset(CassDecimal& val)
         {
             CassConn::reset(val);
+        }
+
+        static void my_reset(CassBytes& val)
+        {
+            val.data = 0;
+            val.size = 0;
         }
 
         static void my_reset(CassInet& val)

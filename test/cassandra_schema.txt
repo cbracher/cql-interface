@@ -24,3 +24,9 @@ create table if not exists coll_test_data
     value_set set<int>,
     value_map map<int,int>
 );
+
+create table if not exists blob_data 
+(
+    docid int primary key,
+    value blob
+);
