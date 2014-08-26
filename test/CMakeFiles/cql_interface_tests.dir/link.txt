@@ -1,1 +1,0 @@
-/usr/bin/c++    -Wall -Wno-strict-aliasing -std=c++11    CMakeFiles/cql_interface_tests.dir/TestRefId.cpp.o CMakeFiles/cql_interface_tests.dir/TestRunner.cpp.o CMakeFiles/cql_interface_tests.dir/TestCassandra.cpp.o  -o cql_interface_tests  -L/usr/local/lib -rdynamic -l../libcql_interface.a -Wl,-rpath,/usr/local/lib 

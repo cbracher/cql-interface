@@ -1,1 +1,0 @@
-/home/charles/cql-interface/cql-interface/test/CMakeFiles/cql_interface_tests.dir
