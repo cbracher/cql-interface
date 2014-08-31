@@ -18,7 +18,8 @@ namespace {
     log4cxx::LoggerPtr logger(log4cxx::Logger::getLogger("cb.cassandra"));
 
     // use this for timeouts
-    cass_duration_t timeout_in_micro = 5000000;
+    cass_duration_t g_timeout_in_micro = 5000000;
+    CassConsistency g_consist = CASS_CONSISTENCY_LOCAL_QUORUM;
 
     class CassBase
     {
@@ -27,8 +28,7 @@ namespace {
             CassBase(const std::set<std::string>& ip_list, 
                      const std::string& keyspace, 
                      const std::string& login,
-                     const std::string& passwd,
-                     bool use_ssl)
+                     const std::string& passwd)
             : m_cluster(0),
               m_session_future(0),
               m_session(0)
@@ -64,7 +64,7 @@ namespace {
                     }
                     m_session_future = cass_cluster_connect_keyspace(m_cluster, 
                                                                      keyspace.c_str());
-                    cass_future_wait_timed(m_session_future, timeout_in_micro);
+                    cass_future_wait_timed(m_session_future, g_timeout_in_micro);
                     CassError rc = cass_future_error_code(m_session_future);
 
                     if (rc == CASS_OK) 
@@ -137,7 +137,7 @@ void CassConn::static_init(const std::set<std::string>& ip_list,
                                 cass_duration_t use_timeout_in_micro,
                                 const std::string& login,
                                 const std::string& passwd,
-                                bool use_ssl)
+                                CassConsistency consist)
 {
     LOG4CXX_INFO(logger, "connecting to Cassandra with hosts: " 
                             << cass_util::seq_to_string(ip_list)
@@ -145,9 +145,10 @@ void CassConn::static_init(const std::set<std::string>& ip_list,
                             << " and login: \"" << login << "\""
                             << " and passwd: <not shown>"
                             << " and timeout_in_micro: " << use_timeout_in_micro
-                            << " and ssl option: " << (use_ssl ? "on" : "off"));
-    timeout_in_micro = use_timeout_in_micro;
-    cass_base.reset(new CassBase(ip_list, keyspace, login, passwd, use_ssl));
+                            << " and consist : " << consist);
+    g_timeout_in_micro = use_timeout_in_micro;
+    g_consist = consist;
+    cass_base.reset(new CassBase(ip_list, keyspace, login, passwd));
     if (keyspace.size())
     {
         if (change(string("Use " + keyspace)))
@@ -160,9 +161,20 @@ void CassConn::static_init(const std::set<std::string>& ip_list,
     }
 }
 
-bool CassConn::store(const std::string& query, CassConsistency consist)
+bool CassConn::store(const std::string& query)
+{
+    return store(query, g_consist, g_timeout_in_micro);
+}
+
+bool CassConn::store(const std::string& query, 
+                     CassConsistency consist, 
+                     cass_duration_t timeout_in_micro_in)
 {
     bool retVal = false;
+
+    cass_duration_t timeout_in_micro = (timeout_in_micro_in 
+                                         ? timeout_in_micro_in 
+                                         : g_timeout_in_micro);
 
     CassSession* use_session = cass_base ? cass_base->session() : empty_session;
 
@@ -199,12 +211,23 @@ bool CassConn::store(const std::string& query, CassConsistency consist)
 
 bool CassConn::store(const std::string& query_in, 
                           UUID_TYPE_ENUM uuid_opt,
+                          RefIdImp& auto_increment_id)
+{
+    return store(query_in, uuid_opt, auto_increment_id, g_consist, g_timeout_in_micro);
+}
+bool CassConn::store(const std::string& query_in, 
+                          UUID_TYPE_ENUM uuid_opt,
                           RefIdImp& auto_increment_id,
-                          CassConsistency consist)
+                          CassConsistency consist, 
+                          cass_duration_t timeout_in_micro_in)
 {
     static const string auto_token = "AUTO_UUID";
 
     string query = query_in;
+
+    cass_duration_t timeout_in_micro = (timeout_in_micro_in 
+                                         ? timeout_in_micro_in 
+                                         : g_timeout_in_micro);
 
     if (query.find(auto_token) != string::npos)
     {
@@ -221,24 +244,34 @@ bool CassConn::store(const std::string& query_in,
         }
         boost::replace_first(query, auto_token, auto_increment_id.to_string());
     }
-    return store(query, consist);
+    return store(query, consist, timeout_in_micro);
 }
 
-bool CassConn::change(const std::string& query, 
-                           CassConsistency consist)
+bool CassConn::change(const std::string& query)
 {
-    return store(query, consist);
+    return change(query, g_consist, g_timeout_in_micro);
+}
+bool CassConn::change(const std::string& query, 
+                      CassConsistency consist, 
+                      cass_duration_t timeout_in_micro)
+{
+    return store(query, consist, timeout_in_micro);
 }
 
+bool CassConn::truncate(const std::string& table_name, unsigned timeout_in_sec)
+{
+    return truncate(table_name, g_consist, timeout_in_sec);
+}
 bool CassConn::truncate(const std::string& table_name, 
-                             CassConsistency consist)
+                        CassConsistency consist, 
+                        unsigned timeout_in_sec)
 {
     string cmd = string("truncate ") + table_name;
     // note that this change might fail
     bool truncated = change(cmd, consist);
     if (!truncated)
     {
-        unsigned num_retries = 5;
+        unsigned num_retries = (timeout_in_sec ? timeout_in_sec : 5);
         for (unsigned i=0; i<num_retries; ++i)
         {
             sleep(1);
@@ -263,13 +296,22 @@ bool CassConn::truncate(const std::string& table_name,
     return truncated;
 }
 
+bool CassConn::store_if_not_exists(const std::string& query)
+{
+    return store_if_not_exists(query, g_consist, g_timeout_in_micro);
+}
 bool CassConn::store_if_not_exists(const std::string& query, 
-                                        CassConsistency consist)
+                                   CassConsistency consist,
+                                   cass_duration_t timeout_in_micro_in)
 {
     string use_query = query + " if not exists";
 
+    cass_duration_t timeout_in_micro = (timeout_in_micro_in 
+                                         ? timeout_in_micro_in 
+                                         : g_timeout_in_micro);
+
     TestIfAppliedFetcher fetcher_if;
-    bool retVal = CassConn::fetch(use_query, fetcher_if, consist);
+    bool retVal = CassConn::fetch(use_query, fetcher_if, consist, timeout_in_micro);
     if (!retVal)
     {
         LOG4CXX_DEBUG(logger, "failed: \"" << use_query 
@@ -280,11 +322,23 @@ bool CassConn::store_if_not_exists(const std::string& query,
 
 bool CassConn::async_fetch(const std::string& query, 
                                 CassFetcherPtr fetcher,
+                                CassFetcherHolderPtr fetch_holder)
+{
+    return async_fetch(query, fetcher, fetch_holder, g_consist, g_timeout_in_micro);
+}
+
+bool CassConn::async_fetch(const std::string& query, 
+                                CassFetcherPtr fetcher,
                                 CassFetcherHolderPtr fetch_holder,
-                                CassConsistency consist)
+                                CassConsistency consist, 
+                                cass_duration_t timeout_in_micro_in)
 {
     bool retVal = false;
     CassSession* use_session = cass_base ? cass_base->session() : empty_session;
+
+    cass_duration_t timeout_in_micro = (timeout_in_micro_in 
+                                         ? timeout_in_micro_in 
+                                         : g_timeout_in_micro);
 
     if (use_session && fetcher && fetch_holder)
     {
@@ -294,7 +348,7 @@ bool CassConn::async_fetch(const std::string& query,
         CassFuture* future = cass_session_execute(use_session, statement);
         cass_statement_free(statement);
 
-        retVal = fetch_holder->assign(future, fetcher, query);
+        retVal = fetch_holder->assign(future, fetcher, query, timeout_in_micro);
     } else if (!fetcher)
     {
         LOG4CXX_ERROR(logger, "calling fetch: \"" << query << "\" with null CassFetcherPtr");
@@ -310,11 +364,22 @@ bool CassConn::async_fetch(const std::string& query,
 
 
 bool CassConn::fetch(const std::string& query, 
-                          CassFetcher& fetcher,
-                          CassConsistency consist)
+                     CassFetcher& fetcher)
+{
+    return fetch(query, fetcher, g_consist, g_timeout_in_micro);
+}
+
+bool CassConn::fetch(const std::string& query, 
+                     CassFetcher& fetcher,
+                     CassConsistency consist, 
+                     cass_duration_t timeout_in_micro_in)
 {
     bool retVal = false;
     CassSession* use_session = cass_base ? cass_base->session() : empty_session;
+
+    cass_duration_t timeout_in_micro = (timeout_in_micro_in 
+                                         ? timeout_in_micro_in 
+                                         : g_timeout_in_micro);
 
     if (use_session)
     {
@@ -324,7 +389,7 @@ bool CassConn::fetch(const std::string& query,
         CassFuture* future = cass_session_execute(use_session, statement);
         cass_statement_free(statement);
 
-        retVal = process_future(future, fetcher, query);
+        retVal = process_future(future, fetcher, query, timeout_in_micro);
     } else
     {
         LOG4CXX_ERROR(logger, "calling fetch: \"" << query << "\" before cassandra is initialized");
@@ -333,8 +398,9 @@ bool CassConn::fetch(const std::string& query,
 }
 
 bool CassConn::process_future(CassFuture* future, 
-                                   CassFetcher& fetcher, 
-                                   const std::string& query)
+                              CassFetcher& fetcher, 
+                              const std::string& query,
+                              cass_duration_t timeout_in_micro)
 {
     bool retVal = false;
     if (!future)

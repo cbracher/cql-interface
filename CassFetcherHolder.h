@@ -13,6 +13,7 @@ namespace cb {
 
         CassFetcherHolder()
         : m_future(0),
+          m_timeout_in_micro(0),
           m_was_called(true)    // to avoid CassConn evaluation
         {
         }
@@ -24,7 +25,8 @@ namespace cb {
         // set this Holder with some contents
         bool assign(CassFuture* future, 
                     CassFetcherPtr fetcher,
-                    const std::string& query);
+                    const std::string& query,
+                    cass_duration_t timeout_in_micro);
 
         // will wait for the future to complete (if necessary) and 
         // process the fetcher against it.
@@ -45,6 +47,7 @@ namespace cb {
         CassFetcherPtr m_fetcher;
         CassFuture* m_future;
         std::string m_query;
+        cass_duration_t m_timeout_in_micro;
 
         bool m_was_called;
     };
