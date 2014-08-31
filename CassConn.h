@@ -102,6 +102,21 @@ namespace cb {
         // text fields must escape a "'" with another "'" for "''"
         static void escape(std::ostream& os, const std::string& text);
 
+        struct Stats
+        {
+            uint64_t m_call = 0;     // number of successful calls
+            uint64_t m_timeout = 0;  // number of local or server side timeouts
+            uint64_t m_bad = 0;      // number of bad calls
+        };
+        struct FullStats
+        {
+            Stats m_fetched;
+            Stats m_stored;
+            Stats m_truncated;
+        };
+        // call will clear the current stats
+        static void get_stats(FullStats& stats);
+
     protected:
 
         // utility call used in CassConn::fetch as well as by CassFetcherHolder

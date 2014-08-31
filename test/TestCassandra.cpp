@@ -496,6 +496,151 @@ BOOST_AUTO_TEST_CASE(test_cassandra_store_if_exists_2)
     }
 }
 
+BOOST_AUTO_TEST_CASE(test_stats_truncate) 
+{
+    CassConn::FullStats stats;
+    CassConn::get_stats(stats);     // clear current stats
+
+    // good case
+    for (unsigned i=0; i<nruns; ++i)
+    {
+        bool ok = CassConn::truncate("test_data", consist);
+        BOOST_REQUIRE_MESSAGE(ok, i << " cleared test_data");
+    }
+    CassConn::get_stats(stats);     // clear current stats
+    BOOST_REQUIRE(stats.m_truncated.m_call == nruns);
+    BOOST_REQUIRE(stats.m_truncated.m_timeout == 0);
+    BOOST_REQUIRE(stats.m_truncated.m_bad == 0);
+
+    // bad case
+    for (unsigned i=0; i<3; ++i)
+    {
+        bool ok = CassConn::truncate("test_data_not_exists", consist);
+        BOOST_REQUIRE_MESSAGE(!ok, i << " failed truncate test_data_not_exists");
+    }
+    CassConn::get_stats(stats);     // clear current stats
+    BOOST_REQUIRE(stats.m_truncated.m_call == 0);
+    BOOST_REQUIRE(stats.m_truncated.m_timeout == 0);
+    BOOST_REQUIRE(stats.m_truncated.m_bad == 3);
+
+    // timeout case
+    for (unsigned i=0; i<3; ++i)
+    {
+        bool ok = CassConn::truncate("test_data", consist, 1);
+        BOOST_MESSAGE(i << " truncate succeeded: " << ok);
+    }
+    CassConn::get_stats(stats);     // clear current stats
+    BOOST_REQUIRE(stats.m_truncated.m_call >= 0);
+    BOOST_REQUIRE(stats.m_truncated.m_timeout >= 0);
+    BOOST_REQUIRE(stats.m_truncated.m_timeout + stats.m_truncated.m_call == 3);
+    BOOST_REQUIRE(stats.m_truncated.m_bad == 0);
+    BOOST_MESSAGE("did see " << stats.m_truncated.m_timeout << " timeouts");
+
+}
+
+BOOST_AUTO_TEST_CASE(test_stats_store) 
+{
+    CassConn::FullStats stats;
+
+    BOOST_REQUIRE(CassConn::truncate("other_test_data", consist));
+
+    CassConn::get_stats(stats);     // clear current stats
+
+    // good case
+    for (unsigned i=0; i<nruns; ++i)
+    {
+        // can just overwrite
+        BOOST_REQUIRE(CassConn::store("insert into other_test_data (docid, value) values(1, 'test data1')"));
+    }
+    CassConn::get_stats(stats);     // clear current stats
+    BOOST_REQUIRE_MESSAGE(stats.m_stored.m_call == nruns,
+                          "stats.m_stored.m_call[" << stats.m_stored.m_call
+                          << "] == nruns[" << nruns << "]");
+    BOOST_REQUIRE(stats.m_stored.m_timeout == 0);
+    BOOST_REQUIRE(stats.m_stored.m_bad == 0);
+
+    // bad case
+    for (unsigned i=0; i<3; ++i)
+    {
+        BOOST_REQUIRE(!CassConn::store("insert into non_table (docid, value) values(1, 'test data1')"));
+    }
+    CassConn::get_stats(stats);     // clear current stats
+    BOOST_REQUIRE(stats.m_stored.m_call == 0);
+    BOOST_REQUIRE(stats.m_stored.m_timeout == 0);
+    BOOST_REQUIRE(stats.m_stored.m_bad == 3);
+
+    // timeout case
+    for (unsigned i=0; i<nruns; ++i)
+    {
+        bool ok = CassConn::store("insert into other_test_data (docid, value) values(1, 'test data1')",
+                                  CASS_CONSISTENCY_LOCAL_QUORUM, 
+                                  1);
+        if (!ok)
+        {
+            BOOST_MESSAGE(i << " had a timeout");
+        }
+    }
+    CassConn::get_stats(stats);     // clear current stats
+    BOOST_REQUIRE(stats.m_stored.m_call == 0);
+    BOOST_REQUIRE(stats.m_stored.m_timeout == nruns);
+    BOOST_REQUIRE(stats.m_stored.m_bad == 0);
+    BOOST_MESSAGE("did see " << stats.m_stored.m_timeout << " timeouts");
+}
+
+BOOST_AUTO_TEST_CASE(test_stats_fetched) 
+{
+    CassConn::FullStats stats;
+
+    BOOST_REQUIRE(CassConn::truncate("other_test_data", consist));
+
+    for (unsigned i=0; i<nruns; ++i)
+    {
+        ostringstream cmd;
+        cmd << "insert into other_test_data (docid, value) values(" << i << ", 'test data" << i << "')";
+        BOOST_REQUIRE(CassConn::store(cmd.str()));
+    }
+    CassConn::get_stats(stats);     // clear current stats
+
+    // good case
+    Fetcher<string> fetcher;
+    string val;
+    for (unsigned i=0; i<nruns; ++i)
+    {
+        BOOST_REQUIRE(fetcher.do_fetch("select value from other_test_data where docid in (1)", val));
+        BOOST_REQUIRE(val=="test data1");
+    }
+    CassConn::get_stats(stats);     // clear current stats
+    BOOST_REQUIRE_MESSAGE(stats.m_fetched.m_call == nruns,
+                          "stats.m_fetched.m_call[" << stats.m_fetched.m_call
+                          << "] == nruns[" << nruns << "]");
+    BOOST_REQUIRE(stats.m_fetched.m_timeout == 0);
+    BOOST_REQUIRE(stats.m_fetched.m_bad == 0);
+
+    // bad case
+    for (unsigned i=0; i<3; ++i)
+    {
+        BOOST_REQUIRE(!fetcher.do_fetch("select value from non_table where docid in (1)", val));
+    }
+    CassConn::get_stats(stats);     // clear current stats
+    BOOST_REQUIRE(stats.m_fetched.m_call == 0);
+    BOOST_REQUIRE(stats.m_fetched.m_timeout == 0);
+    BOOST_REQUIRE(stats.m_fetched.m_bad == 3);
+
+    // timeout case
+    for (unsigned i=0; i<nruns; ++i)
+    {
+        BOOST_REQUIRE(!fetcher.do_fetch("select value from other_test_data where docid in (1)", 
+                                        val,
+                                        CASS_CONSISTENCY_LOCAL_QUORUM, 
+                                        1));  // 1 microsec
+    }
+    CassConn::get_stats(stats);     // clear current stats
+    BOOST_REQUIRE(stats.m_fetched.m_call == 0);
+    BOOST_REQUIRE(stats.m_fetched.m_timeout == nruns);
+    BOOST_REQUIRE(stats.m_fetched.m_bad == 0);
+    BOOST_MESSAGE("did see " << stats.m_fetched.m_timeout << " timeouts");
+}
+
 BOOST_AUTO_TEST_SUITE_END()
 
 

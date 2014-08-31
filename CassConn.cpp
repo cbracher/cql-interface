@@ -1,3 +1,4 @@
+#include <atomic>
 #include <string.h>
 #include <boost/make_shared.hpp>
 #include <boost/algorithm/string.hpp>
@@ -20,6 +21,30 @@ namespace {
     // use this for timeouts
     cass_duration_t g_timeout_in_micro = 5000000;
     CassConsistency g_consist = CASS_CONSISTENCY_LOCAL_QUORUM;
+
+    struct CallStats
+    {
+        CallStats()
+        {
+            m_call = 0;
+            m_timeout = 0;
+            m_bad = 0;
+        }
+
+        void set_value_of(CassConn::Stats& stats)
+        {
+            stats.m_call = m_call.exchange(0);
+            stats.m_timeout = m_timeout.exchange(0);
+            stats.m_bad = m_bad.exchange(0);
+        }
+
+        atomic<uint64_t> m_call;
+        atomic<uint64_t> m_timeout;
+        atomic<uint64_t> m_bad;
+    };
+    CallStats fetched;
+    CallStats stored;
+    CallStats truncated;
 
     class CassBase
     {
@@ -187,20 +212,32 @@ bool CassConn::store(const std::string& query,
         future = cass_session_execute(use_session, statement);
         cass_statement_free(statement);
 
-        cass_future_wait_timed(future, timeout_in_micro);
-        
-        CassError rc = cass_future_error_code(future);
-        if(rc == CASS_OK) 
+        if (!cass_future_wait_timed(future, timeout_in_micro))
         {
-            retVal = true;
-            LOG4CXX_TRACE(logger, "executed: \"" << query << "\"");
+            stored.m_timeout.fetch_add(1);
+            LOG4CXX_ERROR(logger, "calling store: \"" << query 
+                                    << "\" had local timeout");
         } else
         {
-            CassString message = cass_future_error_message(future);
-            LOG4CXX_ERROR(logger, "calling store: \"" << query 
-                                    << "\" has error: " << string(message.data, message.length));
+            CassError rc = cass_future_error_code(future);
+            if(rc == CASS_OK) 
+            {
+                retVal = true;
+                stored.m_call.fetch_add(1);
+                LOG4CXX_TRACE(logger, "executed: \"" << query << "\"");
+            } else if(rc == CASS_ERROR_SERVER_WRITE_TIMEOUT) 
+            {
+                stored.m_timeout.fetch_add(1);
+                LOG4CXX_ERROR(logger, "calling store: \"" << query 
+                                        << "\" had server side timeout");
+            } else
+            {
+                stored.m_bad.fetch_add(1);
+                CassString message = cass_future_error_message(future);
+                LOG4CXX_ERROR(logger, "calling store: \"" << query 
+                                        << "\" has error: " << string(message.data, message.length));
+            }
         }
-        
         cass_future_free(future);
     } else
     {
@@ -268,8 +305,8 @@ bool CassConn::truncate(const std::string& table_name,
 {
     string cmd = string("truncate ") + table_name;
     // note that this change might fail
-    bool truncated = change(cmd, consist);
-    if (!truncated)
+    bool did_truncate = change(cmd, consist);
+    if (!did_truncate)
     {
         unsigned num_retries = (timeout_in_sec ? timeout_in_sec : 5);
         for (unsigned i=0; i<num_retries; ++i)
@@ -277,23 +314,28 @@ bool CassConn::truncate(const std::string& table_name,
             sleep(1);
             int64_t count = 0;
             Fetcher<int64_t> fetcher;
-            fetcher.do_fetch(string("select count(*) from ") + table_name, count);
-            truncated = !count;
-            if (truncated)
+            did_truncate = fetcher.do_fetch(string("select count(*) from ") + table_name, count)
+                            && !count;
+            if (did_truncate)
             {
                 break;
             }
         }
-        if (!truncated)
+        if (!did_truncate)
         {
             LOG4CXX_ERROR(logger, "failed truncate on table: " << table_name);
+            truncated.m_bad.fetch_add(1);
         } else
         {
+            truncated.m_call.fetch_add(1);
             LOG4CXX_DEBUG(logger, "did truncate on table: " << table_name
                                     << " despite apparent issue");
         }
+    } else
+    {
+        truncated.m_call.fetch_add(1);
     }
-    return truncated;
+    return did_truncate;
 }
 
 bool CassConn::store_if_not_exists(const std::string& query)
@@ -408,44 +450,57 @@ bool CassConn::process_future(CassFuture* future,
         LOG4CXX_ERROR(logger, "getting null future in CassConn::process_future");
         return retVal;
     }
-    cass_future_wait_timed(future, timeout_in_micro);
-    
-    CassError rc = cass_future_error_code(future);
-    if(rc == CASS_OK) 
+    if (!cass_future_wait_timed(future, timeout_in_micro))
     {
-        retVal = true;
-        const CassResult* result = cass_future_get_result(future);
-        CassIterator* iterator = cass_iterator_from_result(result);
-
-        unsigned nrows = 0;
-        while(retVal && cass_iterator_next(iterator)) {
-            const CassRow* row = cass_iterator_get_row(iterator);
-            if (row)
-            {
-                ++nrows;
-                try
-                {
-                    retVal = fetcher.fetch(*row);
-                } catch(std::exception& e)
-                {
-                    retVal = false;
-                    LOG4CXX_ERROR(logger, "Exception in fetcher.fetch for query: " << query
-                                            << " error: " << e.what());
-                }
-            } else
-            {
-                LOG4CXX_ERROR(logger, "fetch: \"" << query << "\" getting null row");
-                retVal = false;
-            }
-        }
-        LOG4CXX_TRACE(logger, "fetch: \"" << query << "\" returned " << nrows << " rows");
-        cass_result_free(result);
-        cass_iterator_free(iterator);
+        fetched.m_timeout.fetch_add(1);
+        LOG4CXX_ERROR(logger, "calling fetch: \"" << query 
+                                << "\" had local timeout");
     } else
     {
-        CassString message = cass_future_error_message(future);
-        LOG4CXX_ERROR(logger, "calling fetch: \"" << query 
-                                << "\" has error: " << string(message.data, message.length));
+        CassError rc = cass_future_error_code(future);
+        if(rc == CASS_OK) 
+        {
+            retVal = true;
+            fetched.m_call.fetch_add(1);
+            const CassResult* result = cass_future_get_result(future);
+            CassIterator* iterator = cass_iterator_from_result(result);
+
+            unsigned nrows = 0;
+            while(retVal && cass_iterator_next(iterator)) {
+                const CassRow* row = cass_iterator_get_row(iterator);
+                if (row)
+                {
+                    ++nrows;
+                    try
+                    {
+                        retVal = fetcher.fetch(*row);
+                    } catch(std::exception& e)
+                    {
+                        retVal = false;
+                        LOG4CXX_ERROR(logger, "Exception in fetcher.fetch for query: " << query
+                                                << " error: " << e.what());
+                    }
+                } else
+                {
+                    LOG4CXX_ERROR(logger, "fetch: \"" << query << "\" getting null row");
+                    retVal = false;
+                }
+            }
+            LOG4CXX_TRACE(logger, "fetch: \"" << query << "\" returned " << nrows << " rows");
+            cass_result_free(result);
+            cass_iterator_free(iterator);
+        } else if(rc == CASS_ERROR_SERVER_READ_TIMEOUT) 
+        {
+            fetched.m_timeout.fetch_add(1);
+            LOG4CXX_ERROR(logger, "calling fetch: \"" << query 
+                                    << "\" had server side timeout");
+        } else
+        {
+            fetched.m_bad.fetch_add(1);
+            CassString message = cass_future_error_message(future);
+            LOG4CXX_ERROR(logger, "calling fetch: \"" << query 
+                                    << "\" has error: " << string(message.data, message.length));
+        }
     }
     cass_future_free(future);
     return retVal;
@@ -518,3 +573,9 @@ void CassConn::escape(std::ostream& os, const std::string& text)
     }
 }
 
+void CassConn::get_stats(CassConn::FullStats& stats)
+{
+    fetched.set_value_of(stats.m_fetched);
+    stored.set_value_of(stats.m_stored);
+    truncated.set_value_of(stats.m_truncated);
+}

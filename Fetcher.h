@@ -22,6 +22,17 @@ namespace cb {
             return CassConn::fetch(query, *this) && m_was_set;
         }
 
+        // if timeout_in_micro == 0, will use global timeout default set in CassConn
+        bool do_fetch(const std::string& query, 
+                      T& obj, 
+                      CassConsistency consist,
+                      cass_duration_t timeout_in_micro = 0)
+        {
+            m_was_set = false;
+            m_ptr = &obj;
+            return CassConn::fetch(query, *this, consist, timeout_in_micro) && m_was_set;
+        }
+
     protected:
 
         virtual bool fetch(const CassRow& result)
