@@ -363,6 +363,17 @@ BOOST_AUTO_TEST_CASE(test_fetcher_coll)
         // empty result
         BOOST_REQUIRE(!fetcher.do_fetch("select value_map from coll_test_data where docid=2", val));
     }
+    {
+        Fetcher< vector<pair<int,int>> > fetcher;
+        vector<pair<int,int>> val;
+        BOOST_REQUIRE(fetcher.do_fetch("select value_map from coll_test_data where docid=1", val));
+        BOOST_REQUIRE(val.size() == 4);
+        vector<pair<int,int>> check_val({ {1,2}, {2,4}, {4,8}, {8,16} });
+        BOOST_REQUIRE(val ==  check_val);
+
+        // empty result
+        BOOST_REQUIRE(!fetcher.do_fetch("select value_map from coll_test_data where docid=2", val));
+    }
 
 }
 

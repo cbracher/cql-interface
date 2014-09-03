@@ -171,6 +171,53 @@ namespace cb {
             return true;
         }
 
+        template <typename S, typename T>
+        static bool get_nth(int field, 
+                            std::vector<std::pair<S,T>>& val, 
+                            const CassRow& row,
+                            cass_fld_required_enum_t req_opt 
+                                  = CASS_FLD_IS_REQUIRED_ENUM)
+        {
+            std::pair<S,T> tmp;
+            return get_nth(field, val, tmp, row, req_opt);
+        }
+
+        // use this map fetcher to avoid allocation of the tmp data holder
+        template <typename S, typename T>
+        static bool get_nth(int field, 
+                            std::vector<std::pair<S,T>>& val, 
+                            std::pair<S,T>& tmp,
+                            const CassRow& row,
+                            cass_fld_required_enum_t req_opt 
+                                  = CASS_FLD_IS_REQUIRED_ENUM)
+        {
+            static log4cxx::LoggerPtr logger(log4cxx::Logger::getLogger("cb.cass_fetch_helper"));
+            val.clear();
+            const CassValue* cass_value = cass_row_get_column(&row, field);
+            if (cass_value_is_null(cass_value))
+            {
+                return req_opt != CASS_FLD_IS_REQUIRED_ENUM;
+            }
+            CassIterator* items_iterator = cass_iterator_from_collection(cass_value);
+            while(cass_iterator_next(items_iterator))
+            {
+                if (did_extract(tmp.first, cass_iterator_get_value(items_iterator))
+                    && cass_iterator_next(items_iterator)
+                    && did_extract(tmp.second, cass_iterator_get_value(items_iterator)))
+                {
+                    LOG4CXX_TRACE(logger, "extracted key: " << tmp.first
+                                            << " and value: " << tmp.second);
+                    val.push_back(tmp);
+                } else
+                {
+                    LOG4CXX_ERROR(logger, "failed reading a map collection value");
+                    return false;
+                }
+            }
+            cass_iterator_free(items_iterator);
+            return true;
+        }
+
     protected:
 
         static bool did_extract(bool& val_in, const CassValue* cass_value)
