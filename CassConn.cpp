@@ -53,10 +53,12 @@ namespace {
             CassBase(const std::set<std::string>& ip_list, 
                      const std::string& keyspace, 
                      const std::string& login,
-                     const std::string& passwd)
+                     const std::string& passwd,
+                     const std::string& local_dc)
             : m_cluster(0),
               m_session_future(0),
-              m_session(0)
+              m_session(0),
+              m_local_dc(local_dc)
             {
                 try
                 {
@@ -86,6 +88,16 @@ namespace {
                     for (auto it = ip_list.begin(); it != ip_list.end(); ++it)
                     {
                         cass_cluster_set_contact_points(m_cluster, it->c_str());
+                    }
+                    if (m_local_dc.size())
+                    {
+                        CassError ok = cass_cluster_set_load_balance_dc_aware(m_cluster, m_local_dc.c_str());
+                        if (ok != CASS_OK)
+                        {
+                            throw Exception(string("failed setting dc aware policy for: \"") 
+                                                    + m_local_dc + "\"",
+                                                    __FILE__, __LINE__);
+                        }
                     }
                     m_session_future = cass_cluster_connect_keyspace(m_cluster, 
                                                                      keyspace.c_str());
@@ -131,6 +143,7 @@ namespace {
             CassCluster* m_cluster;
             CassFuture* m_session_future;
             CassSession* m_session;
+            std::string m_local_dc;
     };
 
     boost::shared_ptr<CassBase> cass_base;
@@ -162,7 +175,8 @@ void CassConn::static_init(const std::set<std::string>& ip_list,
                                 cass_duration_t use_timeout_in_micro,
                                 const std::string& login,
                                 const std::string& passwd,
-                                CassConsistency consist)
+                                CassConsistency consist,
+                                const std::string& local_dc)
 {
     LOG4CXX_INFO(logger, "connecting to Cassandra with hosts: " 
                             << cass_util::seq_to_string(ip_list)
@@ -170,10 +184,11 @@ void CassConn::static_init(const std::set<std::string>& ip_list,
                             << " and login: \"" << login << "\""
                             << " and passwd: <not shown>"
                             << " and timeout_in_micro: " << use_timeout_in_micro
-                            << " and consist : " << consist);
+                            << " and consist : " << consist
+                            << " and local_dc : \"" << local_dc << "\"");
     g_timeout_in_micro = use_timeout_in_micro;
     g_consist = consist;
-    cass_base.reset(new CassBase(ip_list, keyspace, login, passwd));
+    cass_base.reset(new CassBase(ip_list, keyspace, login, passwd, local_dc));
     if (keyspace.size())
     {
         if (change(string("Use " + keyspace)))

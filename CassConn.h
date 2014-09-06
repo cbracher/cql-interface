@@ -26,12 +26,14 @@ namespace cb {
         // a default timeout, which can be overridden per query.
         // login + password as needed
         // a default consistency which can be overridden per query
+        // local_dc - sets the cluster to use for a local dc aware policy
         static void static_init(const std::set<std::string>& ip_list, 
                                 const std::string& keyspace,
                                 cass_duration_t timeout_in_micro = def_timeout_in_micro_arg,
                                 const std::string& login = "",
                                 const std::string& passwd = "",
-                                CassConsistency consist = CASS_CONSISTENCY_LOCAL_QUORUM);
+                                CassConsistency consist = CASS_CONSISTENCY_LOCAL_QUORUM,
+                                const std::string& local_dc = "");
 
         // All calls go with the default timeout and consistency unless overridden
         // in the specific call. If you leave timeout_in_micro == 0, we use the
