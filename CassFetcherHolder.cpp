@@ -3,6 +3,15 @@
 
 using namespace cb;
 
+void CassFetcherHolder::clear()
+{
+    m_was_called = true;    // no need to call again
+    m_fetcher.reset();
+    m_future = 0;
+    m_query.clear();
+    m_timeout_in_micro = 0;
+}
+
 bool CassFetcherHolder::assign(CassFuture* future, 
                                CassFetcherPtr fetcher,
                                const std::string& query,
@@ -18,11 +27,7 @@ bool CassFetcherHolder::assign(CassFuture* future,
         return true;
     } else
     {
-        m_was_called = true;    // no need to call again
-        m_fetcher.reset();
-        m_future = 0;
-        m_query.clear();
-        m_timeout_in_micro = 0;
+        clear();
     }
     return false;
 }

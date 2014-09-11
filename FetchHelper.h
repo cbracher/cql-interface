@@ -8,7 +8,7 @@
 #include "log4cxx/logger.h"
 #include "cql-interface/CassConn.h"
 #include "cql-interface/RefId.h"
-#include "cql-interface/CassUtil.h"
+#include "cql-interface/CassBytesMgr.h"
 
 namespace cb {
 
@@ -282,15 +282,25 @@ namespace cb {
             return val.did_extract(cass_value);
         }
 
+        /* not safe since it includes a bare CassBytes. Need to port to use CassBytesMgr
         static bool did_extract(CassDecimal& val, const CassValue* cass_value)
         {
             CassError rc = cass_value_get_decimal(cass_value, &val);
             return rc == CASS_OK;
         }
+        */
 
-        static bool did_extract(CassBytes& val, const CassValue* cass_value)
+        static bool did_extract(CassBytesMgr& val, const CassValue* cass_value)
         {
-            CassError rc = cass_value_get_bytes(cass_value, &val);
+            CassBytes tmp;
+            CassError rc = cass_value_get_bytes(cass_value, &tmp);
+            if (rc == CASS_OK)
+            {
+                val.assign(tmp);
+            } else
+            {
+                val.clear();
+            }
             return rc == CASS_OK;
         }
 
@@ -336,15 +346,16 @@ namespace cb {
             val.reset();
         }
 
+        /* need to be ported to CassBytesMgr
         static void my_reset(CassDecimal& val)
         {
             CassConn::reset(val);
         }
+        */
 
-        static void my_reset(CassBytes& val)
+        static void my_reset(CassBytesMgr& val)
         {
-            val.data = 0;
-            val.size = 0;
+            val.clear();
         }
 
         static void my_reset(CassInet& val)

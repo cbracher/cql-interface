@@ -287,13 +287,18 @@ BOOST_AUTO_TEST_CASE(test_blob)
 
     {
         BOOST_REQUIRE(CassConn::store("insert into blob_data (docid, value) values (1, textAsBlob('hello world'));"));
-        Fetcher<CassBytes> fetcher;
-        CassBytes val;
+        Fetcher<CassBytesMgr> fetcher;
+        CassBytesMgr val;
         BOOST_REQUIRE(fetcher.do_fetch("select value from blob_data where docid=1", val));
-        BOOST_REQUIRE(val.size);
-        string val_out(reinterpret_cast<const char*>(val.data), val.size);
+        BOOST_REQUIRE(val.size());
+        string val_out;
+        for (auto it = val.data().begin(); it != val.data().end(); ++it)
+        {
+            val_out += char(*it);
+        }
         BOOST_REQUIRE_MESSAGE(val_out == "hello world",
-                                "val_out[" << val_out << "] == 'hello world'");
+                                "val_out[" << val_out << "] == 'hello world'"
+                                << " where val.size() = " << val.size());
     }
     for (unsigned n=0; n<64; ++n)
     {

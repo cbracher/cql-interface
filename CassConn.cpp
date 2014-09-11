@@ -416,6 +416,11 @@ bool CassConn::async_fetch(const std::string& query,
     {
         LOG4CXX_ERROR(logger, "calling fetch: \"" << query << "\" before cassandra is initialized");
     }
+    if (!retVal && fetch_holder)
+    {
+        // make sure there is no residual fetch holder content
+        fetch_holder->clear();
+    }
     return retVal;
 }
 
@@ -478,32 +483,45 @@ bool CassConn::process_future(CassFuture* future,
             retVal = true;
             fetched.m_call.fetch_add(1);
             const CassResult* result = cass_future_get_result(future);
-            CassIterator* iterator = cass_iterator_from_result(result);
-
-            unsigned nrows = 0;
-            while(retVal && cass_iterator_next(iterator)) {
-                const CassRow* row = cass_iterator_get_row(iterator);
-                if (row)
+            if (result)
+            {
+                CassIterator* iterator = cass_iterator_from_result(result);
+                if (iterator)
                 {
-                    ++nrows;
-                    try
-                    {
-                        retVal = fetcher.fetch(*row);
-                    } catch(std::exception& e)
-                    {
-                        retVal = false;
-                        LOG4CXX_ERROR(logger, "Exception in fetcher.fetch for query: " << query
-                                                << " error: " << e.what());
+                    unsigned nrows = 0;
+                    while(retVal && cass_iterator_next(iterator)) {
+                        const CassRow* row = cass_iterator_get_row(iterator);
+                        if (row)
+                        {
+                            ++nrows;
+                            try
+                            {
+                                retVal = fetcher.fetch(*row);
+                            } catch(std::exception& e)
+                            {
+                                retVal = false;
+                                LOG4CXX_ERROR(logger, "Exception in fetcher.fetch for query: " << query
+                                                        << " error: " << e.what());
+                            }
+                        } else
+                        {
+                            LOG4CXX_ERROR(logger, "fetch: \"" << query << "\" getting null row");
+                            retVal = false;
+                        }
                     }
+                    LOG4CXX_TRACE(logger, "fetch: \"" << query 
+                                            << "\" returned " << nrows 
+                                            << " rows");
+                    cass_iterator_free(iterator);
                 } else
                 {
-                    LOG4CXX_ERROR(logger, "fetch: \"" << query << "\" getting null row");
-                    retVal = false;
+                    LOG4CXX_ERROR(logger, "fetcher.fetch getting null iterator for query: " << query);
                 }
+                cass_result_free(result);
+            } else
+            {
+                LOG4CXX_ERROR(logger, "fetcher.fetch getting null result for query: " << query);
             }
-            LOG4CXX_TRACE(logger, "fetch: \"" << query << "\" returned " << nrows << " rows");
-            cass_result_free(result);
-            cass_iterator_free(iterator);
         } else if(rc == CASS_ERROR_SERVER_READ_TIMEOUT) 
         {
             fetched.m_timeout.fetch_add(1);

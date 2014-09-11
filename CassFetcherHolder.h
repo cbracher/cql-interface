@@ -12,10 +12,8 @@ namespace cb {
     public:
 
         CassFetcherHolder()
-        : m_future(0),
-          m_timeout_in_micro(0),
-          m_was_called(true)    // to avoid CassConn evaluation
         {
+            clear();
         }
 
         ~CassFetcherHolder() 
@@ -37,6 +35,8 @@ namespace cb {
         // fetcher where the fetcher does not hold values you need.
         bool was_set();
 
+        // clears out current contents
+        void clear();
     private:
 
         // copy semantics are almost ok, but would prefer to avoid 
