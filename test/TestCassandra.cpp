@@ -18,7 +18,7 @@ extern unsigned npost;
 
 namespace 
 {
-    static log4cxx::LoggerPtr logger(Logger::getLogger("cb.cassandra_test"));
+    log4cxx::LoggerPtr logger(Logger::getLogger("cb.cassandra_test"));
 
     // use this consistency for the tests
     CassConsistency consist = CASS_CONSISTENCY_ONE;
@@ -139,8 +139,85 @@ namespace
         BOOST_REQUIRE(val1.back() != val1.front());
 
     }
-}
 
+    int int_key = 0;
+
+    // checks that a prepared statement can store a value as well as update it. Also verifies
+    // that null binding works
+    template<typename T>
+    void test_prep_store_call(const T& val_in, const string& field_name)
+    {
+        ostringstream prep_query;
+        prep_query << "insert into prep_store (int_key, " << field_name << ") values(?, ?)";
+        PreparedStorePtr prep_store = CassConn::prepare_store(prep_query.str(), 2);
+        BOOST_REQUIRE(prep_store);
+
+        NullBinder null_bind;
+
+        for (unsigned i=0; i<3; ++i)
+        {
+            BOOST_REQUIRE(prep_store->store(++int_key,val_in));
+            Fetcher<T> fetcher;
+            T val;
+            ostringstream query;
+            query << "select " << field_name << " from prep_store where int_key=" << int_key;
+            BOOST_REQUIRE(fetcher.do_fetch(query.str(), val));
+            BOOST_REQUIRE_MESSAGE(val == val_in, 
+                                  "val[" << val << "] == val_in[" << val_in << "] for field: "
+                                    << field_name);
+
+            if (i == 0)
+            {
+                ostringstream query2;
+                query2 << "update prep_store set " << field_name << " = ? where int_key=?";
+                PreparedStorePtr prep_store_2 = CassConn::prepare_store(query2.str(), 2);
+                BOOST_REQUIRE(prep_store_2->store(null_bind, int_key));
+                BOOST_REQUIRE(!fetcher.do_fetch(query.str(), val));     // since it is gone
+            }
+        }
+    }
+
+
+}
+namespace std
+{
+    ostream& operator<<(ostream& os, const vector<int>& container)
+    {
+        for (auto it = container.begin(); it != container.end(); ++it)
+        {
+            if (it != container.begin()) os << ",";
+            os << *it;
+        }
+        return os;
+    }
+    ostream& operator<<(ostream& os, const list<int>& container)
+    {
+        for (auto it = container.begin(); it != container.end(); ++it)
+        {
+            if (it != container.begin()) os << ",";
+            os << *it;
+        }
+        return os;
+    }
+    ostream& operator<<(ostream& os, const set<int>& container)
+    {
+        for (auto it = container.begin(); it != container.end(); ++it)
+        {
+            if (it != container.begin()) os << ",";
+            os << *it;
+        }
+        return os;
+    }
+    ostream& operator<<(ostream& os, const map<int,int>& container)
+    {
+        for (auto it = container.begin(); it != container.end(); ++it)
+        {
+            if (it != container.begin()) os << ",";
+            os << it->first << "->" << it->second;
+        }
+        return os;
+    }
+}
 
 BOOST_AUTO_TEST_SUITE( CassandralTests )
 
@@ -655,6 +732,82 @@ BOOST_AUTO_TEST_CASE(test_stats_fetched)
     BOOST_REQUIRE(stats.m_fetched.m_timeout == nruns);
     BOOST_REQUIRE(stats.m_fetched.m_bad == 0);
     BOOST_MESSAGE("did see " << stats.m_fetched.m_timeout << " timeouts");
+}
+
+BOOST_AUTO_TEST_CASE(test_prep_store) 
+{
+    bool ok = CassConn::truncate("prep_store", consist);
+    BOOST_REQUIRE_MESSAGE(ok, "cleared prep_store table");
+
+    {
+        string val = "hi there";
+        test_prep_store_call(val, "ascii_value");
+    }
+    {
+        string val = "hi there";
+        test_prep_store_call(val, "text_value");
+    }
+    {
+        cass_int64_t val = 1233424332344;
+        test_prep_store_call(val, "bigint_value");
+    }
+    {
+        CassBytesMgr val;
+        for (uint8_t i=0; i<128; ++i)
+        {
+            val.push_back(i);
+        }
+        test_prep_store_call(val, "blob_value");
+    }
+    {
+        RefId val;
+        val.randomize();
+        test_prep_store_call(val, "uuid_value");
+    }
+    {
+        bool val = cass_false;
+        test_prep_store_call(val, "boolean_value");
+        val = cass_true;
+        test_prep_store_call(val, "boolean_value");
+    }
+    {
+        float val = 3.14159;
+        test_prep_store_call(val, "float_value");
+    }
+    {
+        double val = 10000003.14159;
+        test_prep_store_call(val, "double_value");
+    }
+    {
+        int val = 123456;
+        test_prep_store_call(val, "int_value");
+    }
+    {
+        cass_uint8_t address[CASS_INET_V4_LENGTH] = {127,0,0,1};
+        CassInet val = cass_inet_init_v4(address);
+        test_prep_store_call(val, "inet_value");
+    }
+    {
+        cass_uint8_t address[CASS_INET_V6_LENGTH] = {127,0,0,1,6,7};
+        CassInet val = cass_inet_init_v6(address);
+        test_prep_store_call(val, "inet_value");
+    }
+    {
+        vector<int> val = {1,2,3,4,11,9,8};
+        test_prep_store_call(val, "list_value");
+    }
+    {
+        list<int> val = {9,3,1,3,9};
+        test_prep_store_call(val, "list_value");
+    }
+    {
+        set<int> val = {1,2,3,5,7,9,11};
+        test_prep_store_call(val, "set_value");
+    }
+    {
+        map<int,int> val = { {1,2}, {2,4}, {4,8}};
+        test_prep_store_call(val, "map_value");
+    }
 }
 
 BOOST_AUTO_TEST_SUITE_END()

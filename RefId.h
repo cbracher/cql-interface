@@ -49,6 +49,11 @@ namespace cb {
             
             bool did_extract(const CassValue* value);
 
+            const CassUuid& get_uuid() const
+            {
+                return m_uuid;
+            }
+
         protected:
 
             CassUuid m_uuid;

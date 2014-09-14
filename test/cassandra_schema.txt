@@ -30,3 +30,22 @@ create table if not exists blob_data
     docid int primary key,
     value blob
 );
+
+create table if not exists prep_store 
+(
+    int_key int primary key,
+    ascii_value ascii,
+    bigint_value bigint,
+    blob_value blob,
+    boolean_value boolean,
+    decimal_value decimal,
+    double_value double,
+    float_value float,
+    inet_value inet,
+    int_value int,
+    list_value list<int>,
+    map_value map<int,int>,
+    set_value set<int>,
+    text_value text,
+    uuid_value uuid
+);

@@ -1,6 +1,7 @@
 #ifndef CB_CASS_CONN_H
 #define CB_CASS_CONN_H
 
+#include <memory>
 #include <string>
 #include <set>
 #include <cassandra.h>
@@ -11,13 +12,11 @@
 namespace cb {
 
     class RefIdImp;
+    class PreparedStore;
 
     enum UUID_TYPE_ENUM { TIMEUUID_ENUM, UUID_ENUM};
     class CassConn {
     public:
-
-        // make process_future available to the CassFetcherHolder
-        friend class CassFetcherHolder;
 
         static const unsigned def_timeout_in_micro_arg = 5000000; // 5 seconds
   
@@ -44,6 +43,17 @@ namespace cb {
                           CassConsistency consist,
                           cass_duration_t timeout_in_micro = 0);
 
+        // now same for prepared statements which will store later with bound values
+        // returns null PreparedStorePtr in most failure cases.
+        // could throw if there is an unexpected error.
+        // Should return a PreparedStorePtr which you can use to make store commands with
+        // bound variables.
+        static std::shared_ptr<PreparedStore> prepare_store(const std::string& query, unsigned num_args);
+        static std::shared_ptr<PreparedStore> prepare_store(const std::string& query, 
+                                                            unsigned num_args, 
+                                                            CassConsistency consist,
+                                                            cass_duration_t timeout_in_micro = 0);
+          
         // note that " if not exists " is added by the call.
         static bool store_if_not_exists(const std::string& query);
         static bool store_if_not_exists(const std::string& query, 
@@ -68,6 +78,7 @@ namespace cb {
                           CassConsistency consist,
                           cass_duration_t timeout_in_micro = 0);
 
+        // same as store, used to indicate purpose
         static bool change(const std::string& query);
         static bool change(const std::string& query, 
                            CassConsistency consist,
@@ -97,7 +108,6 @@ namespace cb {
         static void reset(CassUuid uuid);
         static std::string uuid_to_string(CassUuid uuid);
         static void uuid_to_string(CassUuid uuid, std::string& retVal);
-        static void reset(CassDecimal& val);
         static void reset(CassInet& val);
 
         // escape management
@@ -123,10 +133,16 @@ namespace cb {
 
         // utility call used in CassConn::fetch as well as by CassFetcherHolder
         // for asyncronous processing
+        friend class CassFetcherHolder;
         static bool process_future(CassFuture* future, 
                                    CassFetcher& fetcher, 
                                    const std::string& query,
                                    cass_duration_t timeout_in_micro);
+
+        // used by PreparedStore for storing data
+        friend class PreparedStore;
+        static bool store(PreparedStore& prep_store);
+
 
         // default consistency
         CassConsistency m_consist;
@@ -137,7 +153,22 @@ namespace cb {
 		CassConn(const CassConn&) = delete;
     };
 
-    inline std::ostream& operator<<(std::ostream& os, const CassUuid& ref_id)
+    // supplemental helper
+    inline bool operator==(const CassInet& obj1, const CassInet& obj2)
+    {
+        bool retVal = obj1.address_length == obj2.address_length;
+        for (uint32_t i = 0; i < obj1.address_length && retVal; ++i)
+        {
+            retVal = obj1.address[i] == obj2.address[i];
+        }
+        return retVal;
+    }
+}
+
+// supplemental helpers for the base C* objects
+namespace std
+{
+    inline ostream& operator<<(ostream& os, const CassUuid& ref_id)
     {
         char* tmp = 0;
         cass_uuid_string(const_cast<CassUuid&>(ref_id), tmp);
@@ -148,7 +179,15 @@ namespace cb {
         }
         return os;
     }
-
+    inline ostream& operator<<(ostream& os, const CassInet& inet)
+    {
+        for (unsigned i=0; i<inet.address_length; ++i)
+        {
+            if (i) os << ".";
+            os << int16_t(inet.address[i]);
+        }
+        return os;
+    }
 }
 
 #endif 

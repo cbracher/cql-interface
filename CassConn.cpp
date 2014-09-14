@@ -11,6 +11,7 @@
 #include "cql-interface/Exception.h"
 #include "cql-interface/CassConn.h"
 #include "cql-interface/Fetcher.h"
+#include "cql-interface/PreparedStore.h"
 
 using namespace cb;
 using namespace std;
@@ -260,6 +261,82 @@ bool CassConn::store(const std::string& query,
     }
     return retVal;
 }
+
+PreparedStorePtr CassConn::prepare_store(const std::string& query, unsigned num_args)
+{
+    return prepare_store(query, num_args, g_consist, g_timeout_in_micro);
+}
+
+PreparedStorePtr CassConn::prepare_store(const std::string& query, 
+                                         unsigned num_args, 
+                                         CassConsistency consist, 
+                                         cass_duration_t timeout_in_micro_in)
+{
+    PreparedStorePtr retVal;
+
+    cass_duration_t timeout_in_micro = (timeout_in_micro_in 
+                                         ? timeout_in_micro_in 
+                                         : g_timeout_in_micro);
+
+    CassSession* use_session = cass_base ? cass_base->session() : empty_session;
+
+    if (use_session)
+    {
+        CassStatement* statement = cass_statement_new(cass_string_init(query.c_str()), num_args);
+
+        if (statement)
+        {
+            cass_statement_set_consistency(statement, consist);
+            // can't use make_shared since constructor is protected
+            retVal.reset(new PreparedStore(query, statement, num_args, timeout_in_micro));
+        }
+    }
+    return retVal;
+}
+
+bool CassConn::store(PreparedStore& prep_store)
+{
+    bool retVal = false;
+    CassSession* use_session = cass_base ? cass_base->session() : empty_session;
+
+    if (use_session)
+    {
+        CassFuture* future = cass_session_execute(use_session, prep_store.m_statement);
+
+        if (!cass_future_wait_timed(future, prep_store.m_timeout_in_micro))
+        {
+            stored.m_timeout.fetch_add(1);
+            LOG4CXX_ERROR(logger, "calling store: \"" << prep_store.m_query 
+                                    << "\" had local timeout");
+        } else
+        {
+            CassError rc = cass_future_error_code(future);
+            if(rc == CASS_OK) 
+            {
+                retVal = true;
+                stored.m_call.fetch_add(1);
+                LOG4CXX_TRACE(logger, "executed: \"" << prep_store.m_query << "\"");
+            } else if(rc == CASS_ERROR_SERVER_WRITE_TIMEOUT) 
+            {
+                stored.m_timeout.fetch_add(1);
+                LOG4CXX_ERROR(logger, "calling store: \"" << prep_store.m_query 
+                                        << "\" had server side timeout");
+            } else
+            {
+                stored.m_bad.fetch_add(1);
+                CassString message = cass_future_error_message(future);
+                LOG4CXX_ERROR(logger, "calling store: \"" << prep_store.m_query 
+                                        << "\" has error: " << string(message.data, message.length));
+            }
+        }
+        cass_future_free(future);
+    } else
+    {
+        LOG4CXX_ERROR(logger, "calling store: \"" << prep_store.m_query << "\" before cassandra is initialized");
+    }
+    return retVal;
+}
+
 
 bool CassConn::store(const std::string& query_in, 
                           UUID_TYPE_ENUM uuid_opt,
@@ -569,21 +646,6 @@ void CassConn::uuid_to_string(CassUuid uuid, std::string& retVal)
     char tmp[CASS_UUID_STRING_LENGTH];
     cass_uuid_string(uuid, tmp);
     retVal = tmp;
-}
-
-void CassConn::reset(CassDecimal& val)
-{
-    // BUGBUG - not clear what to do here
-    LOG4CXX_ERROR(logger, "CassConn::reset(CassDecimal& val) called but not valid");
-    /*
-    if (val.varint.data)
-    {
-        for (size_t i=0; i<val.varint.size; ++i)
-        {
-            val.varint.data[i] = 0;
-        }
-    }
-    */
 }
 
 void CassConn::reset(CassInet& val)

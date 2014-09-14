@@ -13,6 +13,7 @@
 #include "cql-interface/LogBaseInfo.h"
 #include "cql-interface/Exception.h"
 #include "cql-interface/CassUtil.h"
+#include "cql-interface/PreparedStore.h"
 
 #endif 
 
