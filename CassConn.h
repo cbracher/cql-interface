@@ -26,13 +26,23 @@ namespace cb {
         // login + password as needed
         // a default consistency which can be overridden per query
         // local_dc - sets the cluster to use for a local dc aware policy
+        // num_threads_io - sets cass_cluster_set_num_threads_io
+        // max_connections_per_host - sets cass_cluster_set_max_connections_per_host
+        //                            as well as cass_cluster_set_core_connections_per_host
+        //                            (no need to grow connections while serving)
+        // queue_size_io - sets cass_cluster_set_queue_size_io (fixed queue size
+        //                 for pending requests).
         static void static_init(const std::set<std::string>& ip_list, 
                                 const std::string& keyspace,
                                 cass_duration_t timeout_in_micro = def_timeout_in_micro_arg,
                                 const std::string& login = "",
                                 const std::string& passwd = "",
                                 CassConsistency consist = CASS_CONSISTENCY_LOCAL_QUORUM,
-                                const std::string& local_dc = "");
+                                const std::string& local_dc = "",
+                                unsigned num_threads_io = 4,
+                                unsigned max_connections_per_host = 4,
+                                unsigned queue_size_io = 4096
+                                );
 
         // All calls go with the default timeout and consistency unless overridden
         // in the specific call. If you leave timeout_in_micro == 0, we use the

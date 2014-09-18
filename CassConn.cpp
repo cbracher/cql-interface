@@ -55,7 +55,10 @@ namespace {
                      const std::string& keyspace, 
                      const std::string& login,
                      const std::string& passwd,
-                     const std::string& local_dc)
+                     const std::string& local_dc,
+                     unsigned num_threads_io,
+                     unsigned max_connections_per_host,
+                     unsigned queue_size_io)
             : m_cluster(0),
               m_session_future(0),
               m_session(0),
@@ -70,6 +73,48 @@ namespace {
                     }
 
                     m_cluster = cass_cluster_new();
+                    if (!m_cluster)
+                    {
+                        throw Exception("failed creating cassandra cluster",
+                                                __FILE__, __LINE__);
+                    }
+
+                    if (cass_cluster_set_num_threads_io(m_cluster, num_threads_io)
+                            != CASS_OK)
+                    {
+                        ostringstream err;
+                        err << "failed cass_cluster_set_num_threads_io: " 
+                            << num_threads_io;
+                        throw Exception(err.str(), __FILE__, __LINE__);
+                    }
+
+                    if (cass_cluster_set_core_connections_per_host(m_cluster, max_connections_per_host)
+                            != CASS_OK)
+                    {
+                        ostringstream err;
+                        err << "failed cass_cluster_set_core_connections_per_host: " 
+                            << max_connections_per_host;
+                        throw Exception(err.str(), __FILE__, __LINE__);
+                    }
+
+                    if (cass_cluster_set_max_connections_per_host(m_cluster, max_connections_per_host)
+                            != CASS_OK)
+                    {
+                        ostringstream err;
+                        err << "failed cass_cluster_set_max_connections_per_host: " 
+                            << max_connections_per_host;
+                        throw Exception(err.str(), __FILE__, __LINE__);
+                    }
+
+                    if (cass_cluster_set_max_pending_requests(m_cluster, queue_size_io)
+                            != CASS_OK)
+                    {
+                        ostringstream err;
+                        err << "failed cass_cluster_set_max_pending_requests: " 
+                            << queue_size_io;
+                        throw Exception(err.str(), __FILE__, __LINE__);
+                    }
+
                     if (login.size() && passwd.size())
                     {
                         CassError ok = cass_cluster_set_credentials(m_cluster, 
@@ -177,7 +222,10 @@ void CassConn::static_init(const std::set<std::string>& ip_list,
                                 const std::string& login,
                                 const std::string& passwd,
                                 CassConsistency consist,
-                                const std::string& local_dc)
+                                const std::string& local_dc,
+                                unsigned num_threads_io,
+                                unsigned max_connections_per_host,
+                                unsigned queue_size_io)
 {
     LOG4CXX_INFO(logger, "connecting to Cassandra with hosts: " 
                             << cass_util::seq_to_string(ip_list)
@@ -186,10 +234,21 @@ void CassConn::static_init(const std::set<std::string>& ip_list,
                             << " and passwd: <not shown>"
                             << " and timeout_in_micro: " << use_timeout_in_micro
                             << " and consist : " << consist
-                            << " and local_dc : \"" << local_dc << "\"");
+                            << " and local_dc : \"" << local_dc << "\""
+                            << " and num_threads_io : " << num_threads_io
+                            << " and max_connections_per_host : " << max_connections_per_host
+                            << " and queue_size_io : " << queue_size_io
+                            );
     g_timeout_in_micro = use_timeout_in_micro;
     g_consist = consist;
-    cass_base.reset(new CassBase(ip_list, keyspace, login, passwd, local_dc));
+    cass_base.reset(new CassBase(ip_list, 
+                                 keyspace, 
+                                 login, 
+                                 passwd, 
+                                 local_dc,
+                                 num_threads_io,
+                                 max_connections_per_host,
+                                 queue_size_io));
     if (keyspace.size())
     {
         if (change(string("Use " + keyspace)))
