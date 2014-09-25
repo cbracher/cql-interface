@@ -47,6 +47,38 @@ namespace {
     CallStats stored;
     CallStats truncated;
 
+    atomic<bool> active_logger(true);
+    void CassLogger(cass_uint64_t time,
+                    CassLogLevel severity,
+                    CassString message,
+                    void* data)
+    {
+        if (!active_logger)
+        {
+            return;
+        }
+        switch (severity)
+        {
+            case CASS_LOG_INFO:
+                LOG4CXX_INFO(logger, "raw_cassandra: " << string(message.data,message.length));
+                break;
+            case CASS_LOG_DEBUG:
+                LOG4CXX_DEBUG(logger, "raw_cassandra: " << string(message.data,message.length));
+                break;
+            case CASS_LOG_CRITICAL:
+            case CASS_LOG_ERROR:
+                LOG4CXX_ERROR(logger, "raw_cassandra: " << string(message.data,message.length));
+                break;
+            case CASS_LOG_WARN:
+                LOG4CXX_WARN(logger, "raw_cassandra: " << string(message.data,message.length));
+                break;
+            case CASS_LOG_LAST_ENTRY:
+                break;
+            case CASS_LOG_DISABLED:
+                break;
+        }
+    }
+
     class CassBase
     {
         public:
@@ -58,7 +90,8 @@ namespace {
                      const std::string& local_dc,
                      unsigned num_threads_io,
                      unsigned max_connections_per_host,
-                     unsigned queue_size_io)
+                     unsigned queue_size_io,
+                     CassLogLevel log_level)
             : m_cluster(0),
               m_session_future(0),
               m_session(0),
@@ -77,6 +110,20 @@ namespace {
                     {
                         throw Exception("failed creating cassandra cluster",
                                                 __FILE__, __LINE__);
+                    }
+
+                    if (cass_cluster_set_log_callback(m_cluster, CassLogger, 0)
+                            != CASS_OK)
+                    {
+                        throw Exception("failed attaching cass logger", __FILE__, __LINE__);
+                    }
+
+                    if (cass_cluster_set_log_level(m_cluster, log_level) != CASS_OK)
+                    {
+                        ostringstream err;
+                        err << "failed cass_cluster_set_log_level: " 
+                            << cass_log_level_string(log_level);
+                        throw Exception(err.str(), __FILE__, __LINE__);
                     }
 
                     if (cass_cluster_set_num_threads_io(m_cluster, num_threads_io)
@@ -179,6 +226,8 @@ namespace {
 
             ~CassBase()
             {
+                active_logger = false;
+                sleep(1);
                 CassFuture* close_future = cass_session_close(m_session);
                 cass_future_wait(close_future);
                 cass_future_free(m_session_future);
@@ -225,7 +274,8 @@ void CassConn::static_init(const std::set<std::string>& ip_list,
                                 const std::string& local_dc,
                                 unsigned num_threads_io,
                                 unsigned max_connections_per_host,
-                                unsigned queue_size_io)
+                                unsigned queue_size_io,
+                                CassLogLevel log_level)
 {
     LOG4CXX_INFO(logger, "connecting to Cassandra with hosts: " 
                             << cass_util::seq_to_string(ip_list)
@@ -238,6 +288,7 @@ void CassConn::static_init(const std::set<std::string>& ip_list,
                             << " and num_threads_io : " << num_threads_io
                             << " and max_connections_per_host : " << max_connections_per_host
                             << " and queue_size_io : " << queue_size_io
+                            << " and log_level : " << cass_log_level_string(log_level)
                             );
     g_timeout_in_micro = use_timeout_in_micro;
     g_consist = consist;
@@ -248,7 +299,8 @@ void CassConn::static_init(const std::set<std::string>& ip_list,
                                  local_dc,
                                  num_threads_io,
                                  max_connections_per_host,
-                                 queue_size_io));
+                                 queue_size_io,
+                                 log_level));
     if (keyspace.size())
     {
         if (change(string("Use " + keyspace)))

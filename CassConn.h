@@ -41,7 +41,8 @@ namespace cb {
                                 const std::string& local_dc = "",
                                 unsigned num_threads_io = 4,
                                 unsigned max_connections_per_host = 4,
-                                unsigned queue_size_io = 4096
+                                unsigned queue_size_io = 4096,
+                                CassLogLevel log_level = CASS_LOG_INFO
                                 );
 
         // All calls go with the default timeout and consistency unless overridden

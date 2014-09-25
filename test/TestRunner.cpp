@@ -45,6 +45,7 @@ init_unit_test_suite( int argc, char* argv[] ) {
     framework::master_test_suite().p_name.value = "CQL Interface Tests";
 
     vector<string> cassandra_ips;
+    bool debug_log_for_cassandra = false;
     cass_duration_t cassandra_timeout = 0;
     po::options_description desc("Allowed options");
     desc.add_options()
@@ -59,6 +60,9 @@ init_unit_test_suite( int argc, char* argv[] ) {
       ("cassandra_timeout", 
             po::value<cass_duration_t>(&cassandra_timeout)->default_value(20000000), 
             "cassandra timeout in ms")
+      ("debug_log_for_cassandra", 
+            po::value<bool>(&debug_log_for_cassandra)->default_value(0), 
+            "include debug logs for Cassandra")
       ("new_help", "produce help message")
       ;
     LogBaseInfo log_info(desc);
@@ -76,7 +80,17 @@ init_unit_test_suite( int argc, char* argv[] ) {
         cassandra_ips.push_back("127.0.0.1");
     }
     std::set<string> use_cass_ips(cassandra_ips.begin(), cassandra_ips.end());
-    CassConn::static_init(use_cass_ips, "cql_interface_test", cassandra_timeout);
+    CassConn::static_init(use_cass_ips, 
+                          "cql_interface_test", 
+                          cassandra_timeout,
+                          "",
+                          "",
+                          CASS_CONSISTENCY_LOCAL_QUORUM,
+                          "",
+                          4,
+                          4,
+                          4096,
+                          (debug_log_for_cassandra ? CASS_LOG_DEBUG : CASS_LOG_INFO));
 
     BOOST_GLOBAL_FIXTURE( Cleaner );
 
