@@ -20,7 +20,7 @@ LogBaseInfo::LogBaseInfo(po::options_description& desc) {
   general_opts.add_options()
     ("help", "produce help message")
     ("my_help", "produce help message")
-    ("logger_config", po::value<string>(&logger_config)->default_value("test_log.cfg"), 
+    ("logger_config", po::value<string>(&logger_config)->default_value("log.cfg"), 
       "config file for logging");
   desc.add(general_opts);
 }
