@@ -640,6 +640,8 @@ bool CassConn::fetch(const std::string& query,
         cass_statement_free(statement);
 
         retVal = process_future(future, fetcher, query, timeout_in_micro);
+        LOG4CXX_DEBUG(logger, "calling fetch: \"" << query << "\" "
+                                << (retVal ? "success" : "FAILED"));
     } else
     {
         LOG4CXX_ERROR(logger, "calling fetch: \"" << query << "\" before cassandra is initialized");
